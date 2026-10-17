@@ -99,6 +99,7 @@
   .lim.warn .lfill { background: #FFC56B; } .lim.warn b { color: #FFC56B; }
   .lim.crit .lfill { background: #FF8A9A; } .lim.crit b { color: #FF8A9A; }
   .lim.reset { opacity: .5; }
+  .lim.old { opacity: .65; }
   .limits.stale .lim { opacity: .55; }
 
   /* ---- toolbar ---- */
@@ -1007,14 +1008,18 @@ function renderLimits() {
   const fmtReset = (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
   el.classList.toggle("stale", age > 3600);
   el.title = `Usage limits as of ${ago(age)} ago (Claude Code status line). The marker shows how much of each window has passed.`;
-  el.innerHTML = LIMITS.filter((l) => rl[l.key]).map((l) => {
-    const { used_percentage: pct, resets_at: at } = rl[l.key];
+  el.innerHTML = LIMITS.map((l) => {
+    if (!rl[l.key]) {  // Claude Code didn't report this window in its last status update
+      return `<div class="lim reset" title="${l.hint}: not reported by Claude Code yet"><span>${l.label}</span><div class="ltrack"></div><b>–</b></div>`;
+    }
+    const { used_percentage: pct, resets_at: at, seen } = rl[l.key];
     if (at && at <= now) {  // the window rolled over after the last reading
       return `<div class="lim reset" title="${l.hint}: reset ${ago(now - at)} ago, no reading since"><span>${l.label}</span><div class="ltrack"></div><b>–</b></div>`;
     }
     const level = pct >= 90 ? "crit" : pct >= 75 ? "warn" : "";
+    const old = seen && L.updated - seen > 300;  // kept from an earlier reading (see ~/.claude/statusline.py)
     const elapsed = at ? Math.min(100, Math.max(0, 100 * (1 - (at - now) / l.span))) : null;
-    return `<div class="lim ${level}" title="${l.hint}: ${pct}% used${at ? ` · resets ${fmtReset(at)}` : ""}${elapsed != null ? ` · ${elapsed.toFixed(0)}% of the window passed (marker)` : ""}">
+    return `<div class="lim ${level}${old ? " old" : ""}" title="${l.hint}: ${pct}% used${old ? ` as of ${ago(now - seen)} ago` : ""}${at ? ` · resets ${fmtReset(at)}` : ""}${elapsed != null ? ` · ${elapsed.toFixed(0)}% of the window passed (marker)` : ""}">
       <span>${l.label}</span>
       <div class="ltrack"><div class="lfill" style="width:${Math.min(100, pct)}%"></div>${elapsed != null ? `<i class="lpace" style="left:${elapsed}%"></i>` : ""}</div>
       <b>${Math.round(pct)}%</b>${at ? `<small>${ago(at - now)}</small>` : ""}

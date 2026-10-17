@@ -78,7 +78,7 @@ What `.env` has to match on the host:
 - **`RUN_AS` / `TMUX_SOCKET_DIR`**: the user who runs tmux and Claude, and their socket dir (`/tmp/tmux-<uid>`). The container runs as that user because the socket is private to it. `./data` must be writable by it (`mkdir -p data && chown <uid>:<gid> data`).
 - **`BASE_IMAGE`**: its tmux must match the host's `tmux -V` (protocol versions must match). If the versions don't match, the dashboard shows "tmux failed" or "protocol version mismatch".
 - **`PROJECTS_DIR`**: one folder per project. The new-session list and grouping come from it.
-- **`CLAUDE_DIR`**: optional extras. `skills/` adds personal skills to the menu. `usage/limits.json` feeds the usage-limit bars and is written by a Claude Code status line script that saves the status line's `rate_limits` payload. Without it, the bars don't show.
+- **`CLAUDE_DIR`**: optional extras. `skills/` adds personal skills to the menu. `usage/limits.json` feeds the usage-limit bars and is written by a Claude Code status line script that saves the status line's `rate_limits` payload. Without it, the bars don't show. Claude Code sometimes leaves a window out of `rate_limits`; the script should then keep the last reading of that window until its `resets_at` and mark when it was taken with a `seen` timestamp (the bar is dimmed then). A window with no reading shows as "–".
 - **batch progress**: this needs `scripts/batch.py`'s log format (see below). Without it, sessions still show up, just without batch progress.
 
 Routing is nginx-proxy path routing (`VIRTUAL_HOST=$DOMAIN`, `VIRTUAL_PATH=$BASE_PATH/`)
