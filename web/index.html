@@ -999,7 +999,12 @@ async function refresh() {
     data = await r.json();
     lastOk = Date.now();
     // the server was redeployed: load the new page, but not while you're in a dialog or typing a message
-    if (data.build && data.build !== BUILD && !document.querySelector("dialog[open]") && !msg.value) { location.reload(); return; }
+    // (once per build: if the new page still doesn't match, e.g. a proxy cached it, don't reload in a loop)
+    if (data.build && data.build !== BUILD && !document.querySelector("dialog[open]") && !msg.value) {
+      let tried = null;
+      try { tried = sessionStorage.getItem("aidash-reloaded-for"); sessionStorage.setItem("aidash-reloaded-for", data.build); } catch {}
+      if (tried !== data.build) { location.reload(); return; }
+    }
     if (data.shots_rev && data.shots_rev !== shotsRev) { const first = shotsRev === null; shotsRev = data.shots_rev; loadShots(first); }
     render();
   } catch (e) { /* keep last data, the indicator goes stale */ }
