@@ -27,7 +27,7 @@ You can also act on sessions from the page:
 
 Screenshots go both ways, from Claude sessions to you and from you to them:
 
-- **From a session**: when Claude takes a screenshot you should see (a UI change, a Playwright capture, a chart), it shares it. The image shows as a thumbnail on that session's card, as a count button in its terminal header, and in the **Screenshots** tab (`/ai/#shots`), grouped by project. A toast tells you when a new one arrives. Click one for the viewer (←/→ or swipe, open full size, copy its path, delete).
+- **From a session**: when Claude takes a screenshot you should see (a UI change, a Playwright capture, a chart), it shares it. The image shows as a thumbnail on that session's card, as a count button in its terminal header, and in the **Screenshots** tab (`/ai/#shots`), grouped by project. When one arrives while that session's terminal is open, it pops up as a small picture-in-picture above the message box, and one click opens it (older ones never pop up). For any other session, a toast tells you. Click one for the viewer (←/→ or swipe, open full size, copy its path, delete).
 - **From you**: the image button next to the mic in the terminal view (or paste, or drag and drop) uploads images for that session and puts their paths into your message, so Claude reads them when you press Send. On a phone, that button opens the camera or the photo library. The tab's **+ Upload** stores an image without sending it anywhere; copy its path from the viewer.
 - Big images are scaled down in the browser first (to about 900 KB, WebP or JPEG; HEIC becomes one of those too), so nginx's default 1 MB request limit doesn't get in the way. Claude scales images down anyway.
 
@@ -76,6 +76,8 @@ The spool dir is closed to other users, so this only works with `RUN_AS=0:0`. Ot
 - `web/`: the login page and the dashboard (auto-refreshes every 5 s, "Open" shows the last 400 lines of a pane).
 - `auth.py`: login: first-run setup, password + TOTP, server-side sessions, failed-login limits.
 - `.env` (not committed, template in `.env.example`): all host-specific settings, optionally `DASHBOARD_PASSWORD` / `TOTP_SECRET` (otherwise the setup screen sets them).
+
+Pages left open across a deploy reload on their own (once the server reports a new build, and not while a dialog is open or you're typing a message).
 
 ## Security
 

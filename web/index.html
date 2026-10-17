@@ -350,6 +350,24 @@
   .vnav.prev { left: 10px; } .vnav.next { right: 10px; }
   .vcap { padding: 10px 16px max(14px, env(safe-area-inset-bottom)); font-size: 14px; color: #fff; text-align: center; white-space: pre-wrap; }
   .vcap code { opacity: .55; font-size: 11px; display: block; margin-top: 4px; word-break: break-all; }
+  /* picture-in-picture: a screenshot this session just shared, above the composer */
+  #dlg .composer { position: relative; }
+  .pip {
+    position: absolute; right: 12px; bottom: calc(100% + 10px); width: 180px; padding: 0; border: 0; border-radius: 10px;
+    overflow: hidden; cursor: pointer; background: var(--surface); color: var(--text); text-align: left; font: inherit;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 2px var(--cloud); animation: pipin .25s ease-out;
+  }
+  .pip[hidden] { display: none; }
+  .pip img { display: block; width: 100%; height: 108px; object-fit: cover; object-position: top; background: var(--idle-bg); }
+  .pip .pcap { display: block; padding: 6px 30px 7px 9px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pip .px {
+    position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(0,0,0,.6); color: #fff; font-size: 15px; line-height: 1; font-style: normal;
+  }
+  .pip .pn { position: absolute; top: 6px; left: 6px; background: var(--brand); color: #fff; border-radius: 10px; padding: 0 7px; font-size: 11px; font-weight: 700; }
+  .pip .pn:empty { display: none; }
+  @keyframes pipin { from { opacity: 0; transform: translateY(12px) scale(.92); } }
+  @media (max-width: 520px) { .pip { width: 132px; } .pip img { height: 80px; } }
   #dlg.dropping .dbody { outline: 3px dashed var(--cloud); outline-offset: -8px; }
   .sendrow #attach.busy { animation: recpulse 1.4s infinite; opacity: .7; }
 
@@ -476,6 +494,9 @@
     </div>
     <div class="dbody mono" id="dbody"></div>
     <div class="composer">
+      <button type="button" class="pip" id="pip" hidden title="New screenshot from this session: click to open">
+        <img id="pipimg" alt=""><span class="pcap" id="pipcap"></span><i class="pn" id="pipn"></i><i class="px" id="pipx" title="Dismiss">×</i>
+      </button>
       <div class="keys mono" id="keys">
         <button data-k="Escape" title="Interrupt Claude">Esc</button>
         <button data-k="Enter">⏎ Enter</button>
@@ -1042,14 +1063,14 @@ function openPane(name) {
   $("#dcmds").style.display = s ? "" : "none";
   $("#dgit").style.display = s?.issues_url ? "" : "none";
   if (s?.issues_url) $("#dgit").href = s.issues_url;
-  updatePaneShots();
+  updatePaneShots(); hidePip();
   $("#dlg").showModal();
   if (!TOUCH) $("#msg").focus();
   loadPane();
   paneTimer = setInterval(loadPane, 3000);
 }
 $("#dclose").onclick = () => $("#dlg").close();
-$("#dlg").addEventListener("close", () => { stopDictation(); clearInterval(paneTimer); paneName = null; closeMenu(); document.body.appendChild($("#menu")); });
+$("#dlg").addEventListener("close", () => { hidePip(); stopDictation(); clearInterval(paneTimer); paneName = null; closeMenu(); document.body.appendChild($("#menu")); });
 $("#dcmds").onclick = (e) => { e.stopPropagation(); const s = byName(paneName); if (s) openMenu(e.currentTarget, commandItems(s)); };
 $("#dcmds").dataset.menu = "";
 $("#dgiticon").innerHTML = GIT_SVG; $("#dgiticon").style.display = "inline-flex";
@@ -1192,7 +1213,10 @@ async function loadShots(first) {
   const before = new Set(shotList.map(shotKey));
   shotList = j.shots; shotsInfo = j;
   const fresh = first ? [] : shotList.filter((x) => x.from === "claude" && !before.has(shotKey(x)));
-  if (fresh.length) toast(fresh.length === 1 ? `${fresh[0].session || "A session"} shared a screenshot` : `${fresh.length} new screenshots`);
+  // shared by the session whose terminal is open: picture-in-picture there; any other session: a toast
+  const here = fresh.filter((x) => x.session === paneName), elsewhere = fresh.filter((x) => x.session !== paneName);
+  if (here.length) showPip(here);
+  if (elsewhere.length) toast(elsewhere.length === 1 ? `${elsewhere[0].session || "A session"} shared a screenshot` : `${elsewhere.length} new screenshots`);
   render(); renderShots(); updatePaneShots();
 }
 
@@ -1288,6 +1312,26 @@ $("#vdel").onclick = async () => {
     showShot();
     toast("Deleted"); refresh();
   } catch (e) { toast(e.message, true); }
+};
+
+/* picture-in-picture over the terminal: only for shots that arrive while it's open, never older ones */
+let pipShot = null, pipCount = 0;
+function showPip(list) {
+  pipShot = list[0];  // newest
+  pipCount = $("#pip").hidden ? list.length : pipCount + list.length;
+  $("#pipimg").src = shotUrl(pipShot);
+  $("#pipcap").textContent = pipShot.caption || "New screenshot";
+  $("#pipn").textContent = pipCount > 1 ? `+${pipCount - 1}` : "";
+  const pip = $("#pip");
+  pip.hidden = false;
+  pip.style.animation = "none"; pip.offsetWidth; pip.style.animation = "";  // replay the slide-in for each new one
+}
+function hidePip() { $("#pip").hidden = true; pipShot = null; pipCount = 0; }
+$("#pip").onclick = (e) => {
+  if (e.target.closest("#pipx")) return hidePip();
+  const s = byName(paneName), list = s ? sessionShots(s) : [], x = pipShot;
+  hidePip();
+  if (x) openViewer(list.length ? list : [x], Math.max(0, list.findIndex((y) => shotKey(y) === shotKey(x))));
 };
 
 function updatePaneShots() {
