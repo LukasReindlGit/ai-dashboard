@@ -1,0 +1,85 @@
+# AI dashboard: a password-protected page for this host's tmux sessions
+# (Claude sessions, batch.py runs).
+#
+#   cp .env.example .env    # then set DOMAIN and the paths
+#   docker compose up -d --build
+#   then open the dashboard right away: the first visit sets the login
+#
+# Everything host-specific comes from .env (see .env.example):
+#   - TMUX_SOCKET_DIR: the host tmux socket dir (/tmp/tmux-<uid>), mounted at the
+#     same path. With pid: host, the process tree under each pane (batch.py etc.)
+#     is visible.
+#   - RUN_AS: uid:gid of the user who owns that tmux server. The socket is
+#     private to that user, and the container drops every capability.
+#   - PROJECTS_DIR: mounted read-only at the same path, because the host tmux
+#     server starts new sessions there. It provides the "New session" project
+#     list, each project's .claude/skills, and its git remote (issues link).
+#   - CLAUDE_DIR: ~/.claude of that user. skills/ adds personal skills to the menu.
+#     usage/limits.json (written by the Claude Code status line,
+#     ~/.claude/statusline.py) feeds the usage-limit bars. Both are optional.
+#   - CRON_SPOOL: the host cron spool (/var/spool/cron/crontabs). The "Cron jobs" view
+#     edits CRON_USER's crontab in it (in place, a backup of each version goes to
+#     ./data/cron-backups). Root only: the spool dir is closed to other users.
+#   - /var/log is mounted read-only for the jobs' log files and, with LOG_GROUP (the
+#     group that may read syslog, adm = 4 on Debian/Ubuntu), each job's last run.
+#   - ./data holds state.json (hidden sessions), auth.json (login), sessions.json. It must be
+#     writable by RUN_AS.
+# Holding the tmux socket means driving the host's tmux, so everything except
+# <BASE_PATH>/health needs a login (password + TOTP code), and every write needs the
+# X-AIDash header (CSRF guard). Sessions live in ./data/sessions.json; delete it to sign
+# out everywhere.
+#
+# ROUTING: nginx-proxy (VIRTUAL_HOST/VIRTUAL_PATH) on the external PROXY_NETWORK, a network
+# of its own (only nginx-proxy + this app), so no other container can reach port 8000.
+# Without nginx-proxy, publish the port in a docker-compose.override.yml (see README.md).
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-ubuntu:22.04}
+    image: ai-dashboard
+    container_name: ${CONTAINER_NAME:-ai-dashboard}
+    env_file: .env          # DASHBOARD_PASSWORD, TOTP_SECRET (optional: setup screen)
+    user: ${RUN_AS:-0:0}
+    group_add: ["${LOG_GROUP:-4}"]
+    environment:
+      BASE_PATH: ${BASE_PATH:-/ai}
+      PROJECTS_ROOT: ${PROJECTS_DIR:?set PROJECTS_DIR in .env}
+      TMUX_SOCKET: ${TMUX_SOCKET_DIR:?set TMUX_SOCKET_DIR in .env}/${TMUX_SOCKET_NAME:-default}
+      USER_SKILLS: /claude/skills
+      LIMITS_FILE: /claude/usage/limits.json
+      CRON_DIR: /cron
+      CRON_USER: ${CRON_USER:-root}
+      HOST_LOG_DIR: /hostlog
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-nginx-proxy}
+      CONTAINER_NAME: ${CONTAINER_NAME:-ai-dashboard}
+      VIRTUAL_HOST: ${DOMAIN:?set DOMAIN in .env}
+      VIRTUAL_PATH: ${BASE_PATH:-/ai}/
+      VIRTUAL_PORT: "8000"
+    pid: host
+    volumes:
+      - ${TMUX_SOCKET_DIR}:${TMUX_SOCKET_DIR}
+      - ${PROJECTS_DIR}:${PROJECTS_DIR}:ro
+      - ${CLAUDE_DIR:?set CLAUDE_DIR in .env}/skills:/claude/skills:ro
+      - ${CLAUDE_DIR}/usage:/claude/usage:ro
+      - ${CRON_SPOOL:-/var/spool/cron/crontabs}:/cron
+      - /var/log:/hostlog:ro
+      - ./data:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000'+os.environ.get('BASE_PATH','/ai').rstrip('/')+'/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK:-aidash}
+    external: true

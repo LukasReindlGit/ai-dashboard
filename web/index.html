@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>AI Ops</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230176D3'/%3E%3Cpath d='M9 21a4 4 0 0 1 .6-7.95A5.5 5.5 0 0 1 20 11.5a4.5 4.5 0 0 1 3 9.5z' fill='white'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --brand: #0176D3; --brand-dark: #014486; --navy: #032D60; --cloud: #1B96FF; --sky: #EAF5FE;
+    --bg: #F3F3F3; --surface: #FFFFFF; --border: #E5E5E5; --text: #181818; --muted: #706E6B;
+    --ok: #2E844A; --ok-bg: #CDEFC4; --warn: #A96404; --warn-bg: #FEF1C7; --warn-dot: #DD7A01;
+    --err: #BA0517; --err-bg: #FDDDE3; --info: #0176D3; --info-bg: #D8EDFF;
+    --idle: #706E6B; --idle-bg: #EEEEEE; --term: #032D60; --term-text: #D8EDFF;
+    --shadow: 0 2px 2px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B1A2E; --surface: #11253F; --border: #1E3A5F; --text: #EAF5FE; --muted: #9CB3CF;
+      --ok-bg: #1D3D2A; --ok: #7FD69A; --warn-bg: #3D2E0E; --warn: #FFC56B; --err-bg: #43161E; --err: #FF8A9A;
+      --info-bg: #0D3460; --info: #78B0FD; --idle-bg: #1C3150; --idle: #9CB3CF; --term: #061428; --sky: #0D3460;
+      --shadow: 0 0 0 1px var(--border);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B1A2E; --surface: #11253F; --border: #1E3A5F; --text: #EAF5FE; --muted: #9CB3CF;
+    --ok-bg: #1D3D2A; --ok: #7FD69A; --warn-bg: #3D2E0E; --warn: #FFC56B; --err-bg: #43161E; --err: #FF8A9A;
+    --info-bg: #0D3460; --info: #78B0FD; --idle-bg: #1C3150; --idle: #9CB3CF; --term: #061428; --sky: #0D3460;
+    --shadow: 0 0 0 1px var(--border);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Salesforce Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.45;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* ---- header ---- */
+  header {
+    background: linear-gradient(120deg, var(--navy) 0%, var(--brand-dark) 50%, var(--brand) 100%);
+    color: #fff; padding: 18px 24px 64px; position: relative; overflow: hidden;
+  }
+  header::after {
+    content: ""; position: absolute; right: -60px; top: -40px; width: 360px; height: 220px; opacity: .12;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cpath d='M22 58a16 16 0 0 1 2-31.8A22 22 0 0 1 64 18a18 18 0 0 1 12 40z' fill='white'/%3E%3C/svg%3E") no-repeat center/contain;
+  }
+  .bar { display: flex; align-items: center; gap: 14px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+  .bar svg { flex: none; }
+  .title h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+  .title div { font-size: 12px; opacity: .8; }
+  .spacer { flex: 1; }
+  .hbtn {
+    background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.25);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .hbtn:hover { background: rgba(255,255,255,.24); }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; height: 16px;
+          opacity: .9; white-space: nowrap; min-width: 64px; font-variant-numeric: tabular-nums; }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: #45C65A; box-shadow: 0 0 0 3px #45C65A44; }
+  .live.stale i { background: #FE9339; box-shadow: 0 0 0 3px #FE933944; }
+
+  main { max-width: 1400px; margin: -44px auto 40px; padding: 0 24px; position: relative; z-index: 2; }
+
+  /* ---- KPIs ---- */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi {
+    background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px; cursor: pointer; border: 2px solid transparent;
+  }
+  .kpi.on { border-color: var(--brand); }
+  .kpi .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+  .kpi b { font-size: 24px; line-height: 1; display: block; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: 12px; }
+
+  /* ---- usage limits (header meters) ---- */
+  .limits { display: flex; gap: 18px; align-items: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .lim { display: flex; align-items: center; gap: 7px; white-space: nowrap; cursor: default; }
+  .lim span { opacity: .75; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .lim .ltrack { position: relative; width: 84px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.22); }
+  .lim .lfill { height: 100%; border-radius: 3px; background: #fff; transition: width .4s; }
+  .lim .lpace { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: #fff; opacity: .6; }
+  .lim b { font-weight: 700; }
+  .lim small { opacity: .7; font-size: 11px; }
+  .lim.warn .lfill { background: #FFC56B; } .lim.warn b { color: #FFC56B; }
+  .lim.crit .lfill { background: #FF8A9A; } .lim.crit b { color: #FF8A9A; }
+  .lim.reset { opacity: .5; }
+  .limits.stale .lim { opacity: .55; }
+
+  /* ---- toolbar ---- */
+  .tools { display: flex; gap: 8px; align-items: center; margin: 22px 0 6px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--surface); box-shadow: var(--shadow); border-radius: 8px; padding: 3px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 6px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+  }
+  .seg button.on { background: var(--brand); color: #fff; }
+  .tools input {
+    flex: 1; min-width: 160px; max-width: 280px; margin-left: auto; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;
+  }
+  .tools input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px #1B96FF33; }
+
+  /* ---- groups & cards ---- */
+  .group h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+    margin: 22px 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .group h2 { cursor: pointer; user-select: none; width: fit-content; }
+  .group h2:hover { color: var(--text); }
+  .chev { display: inline-block; transition: transform .15s; font-size: 10px; }
+  .collapsed > h2 .chev { transform: rotate(-90deg); }
+  .group.collapsed > .grid { display: none; }
+  .chead .avatar, .chead .cname { cursor: pointer; }
+  .chead .cname:hover { text-decoration: underline; }
+  .card.collapsed { align-self: start; }
+  .card.collapsed .cbody { display: none; }
+  .group h2 .count { background: var(--idle-bg); color: var(--muted); border-radius: 10px; padding: 0 8px; font-size: 11px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
+    display: flex; flex-direction: column; border-top: 4px solid var(--idle);
+  }
+  .card.working { border-top-color: var(--cloud); }
+  .card.attention { border-top-color: var(--warn-dot); }
+  .card.limit { border-top-color: var(--err); }
+  .card.waiting { border-top-color: #FE9339; }
+  .card.done { border-top-color: var(--ok); }
+  .chead { padding: 12px 14px 8px; display: flex; gap: 10px; align-items: flex-start; }
+  .avatar { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; flex: none; color: #fff; }
+  .avatar.batch { background: linear-gradient(135deg, #014486, #0176D3); }
+  .avatar.claude { background: linear-gradient(135deg, #0176D3, #1B96FF); }
+  .avatar.shell { background: #706E6B; }
+  .cname { font-weight: 700; font-size: 15px; word-break: break-all; }
+  .csub { color: var(--muted); font-size: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pill { background: var(--sky); color: var(--brand); border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 600; }
+  .badge {
+    margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; border-radius: 12px; white-space: nowrap;
+  }
+  .badge i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .b-working { background: var(--info-bg); color: var(--info); }
+  .b-working i { animation: pulse 1.4s infinite; }
+  .b-attention { background: var(--warn-bg); color: var(--warn); }
+  .b-attention i { animation: pulse 1s infinite; }
+  .b-waiting { background: var(--warn-bg); color: var(--warn); }
+  .b-limit { background: var(--err-bg); color: var(--err); }
+  .b-done { background: var(--ok-bg); color: var(--ok); }
+  .b-idle { background: var(--idle-bg); color: var(--idle); }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+
+  .cbody { padding: 0 14px 10px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .prompt { background: var(--sky); border-left: 3px solid var(--brand); padding: 6px 10px; border-radius: 0 6px 6px 0; font-size: 13px; }
+  .prompt small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .spin { color: var(--info); font-size: 12px; font-weight: 600; }
+  .current { font-size: 13px; }
+  .current b { color: var(--brand); }
+  .current small { color: var(--muted); display: block; font-size: 12px; }
+  .progress { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+  .track { flex: 1; height: 8px; background: var(--idle-bg); border-radius: 4px; overflow: hidden; display: flex; }
+  .track .m { background: var(--ok); }
+  .track .f { background: var(--err); }
+  .track .c { background: var(--cloud); animation: stripe 1s linear infinite;
+    background-image: linear-gradient(45deg, rgba(255,255,255,.3) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.3) 50%, rgba(255,255,255,.3) 75%, transparent 75%);
+    background-size: 12px 12px; }
+  @keyframes stripe { to { background-position: 12px 0; } }
+  .events { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+  .events li { display: flex; gap: 8px; align-items: baseline; }
+  .events .t { color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+  .events .o { flex: none; font-weight: 700; font-size: 11px; padding: 0 5px; border-radius: 3px; }
+  .o-merged { background: var(--ok-bg); color: var(--ok); }
+  .o-limit { background: var(--err-bg); color: var(--err); }
+  .o-info { background: var(--idle-bg); color: var(--idle); }
+  .o-other { background: var(--warn-bg); color: var(--warn); }
+  .events .x { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .alert { background: var(--err-bg); color: var(--err); border-radius: 6px; padding: 6px 10px; font-size: 12px; }
+  .term {
+    background: var(--term); color: var(--term-text); border-radius: 6px; padding: 8px 10px; font-size: 11.5px;
+    line-height: 1.4; white-space: pre-wrap; word-break: break-word; max-height: 150px; overflow: hidden;
+    position: relative; margin-top: auto; cursor: pointer;
+  }
+  .term:hover { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .term::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 28px; background: linear-gradient(var(--term), transparent); }
+  .rule { display: inline-block; width: 100%; vertical-align: middle; border-top: 1px solid currentColor; opacity: .45; }
+  .cfoot {
+    border-top: 1px solid var(--border); padding: 8px 14px; display: flex; gap: 14px; align-items: center;
+    font-size: 12px; color: var(--muted); flex-wrap: wrap;
+  }
+  .cfoot button {
+    margin-left: auto; border: 1px solid var(--border); background: var(--surface); color: var(--brand);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; font-weight: 600;
+  }
+  .cfoot button:hover { background: var(--sky); }
+  .cfoot .more { margin-left: 0; color: var(--muted); padding: 4px 8px; }
+  .card.is-hidden { opacity: .55; }
+  .pill.hid { background: var(--idle-bg); color: var(--muted); }
+  .tbtn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px;
+    padding: 7px 12px; cursor: pointer; font-size: 13px; font-weight: 600; box-shadow: var(--shadow); white-space: nowrap;
+  }
+  .tbtn.on { color: var(--brand); border-color: var(--brand); }
+  .tbtn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .tbtn.primary:hover { background: var(--brand-dark); }
+
+  /* ---- dropdown menu (one floating element, survives re-renders) ---- */
+  .menu {
+    position: fixed; z-index: 100; min-width: 230px; max-width: calc(100vw - 16px); max-height: 70vh; overflow: auto;
+    background: var(--surface); color: var(--text); border-radius: 8px; padding: 4px;
+    box-shadow: 0 8px 30px rgba(3,45,96,.25), 0 0 0 1px var(--border); display: none;
+  }
+  .menu.open { display: block; }
+  .menu h6 { margin: 6px 10px 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .menu button {
+    display: flex; width: 100%; gap: 10px; align-items: baseline; text-align: left; border: 0; background: transparent;
+    color: inherit; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .menu button:hover, .menu button:focus-visible { background: var(--sky); outline: none; }
+  .menu button small { color: var(--muted); font-size: 11px; margin-left: auto; }
+  .menu button.skill { flex-direction: column; gap: 1px; align-items: stretch; max-width: 340px; }
+  .menu button.skill span { font-weight: 600; }
+  .menu button.skill em {
+    font-style: normal; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .gitbtn {
+    display: inline-grid; place-items: center; width: 28px; height: 26px; border-radius: 6px; flex: none;
+    border: 1px solid var(--border); color: var(--text); background: var(--surface);
+  }
+  .gitbtn:hover { background: var(--sky); color: var(--brand); }
+  .cfoot .gitbtn { margin-left: auto; }
+  .cfoot .gitbtn + .open { margin-left: 0; }
+  .menu button.danger { color: var(--err); }
+  .menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+
+  /* ---- small dialogs ---- */
+  dialog.small {
+    width: min(460px, calc(100vw - 32px)); height: fit-content; background: var(--surface); color: var(--text); padding: 0;
+  }
+  .sd-head { padding: 16px 18px 4px; font-weight: 700; font-size: 16px; color: var(--text); }
+  .sd-body { padding: 6px 18px 4px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
+  .sd-body code { display: block; background: var(--term); color: var(--term-text); padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+  .sd-body label { font-size: 12px; font-weight: 600; color: var(--text); display: flex; flex-direction: column; gap: 4px; }
+  .sd-body label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
+  .sd-body input:not([type=checkbox]), .sd-body select, .sd-body textarea {
+    width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font: inherit; font-size: 14px;
+  }
+  .sd-body .err { color: var(--err); }
+  .sd-foot { padding: 14px 18px 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  .sd-foot button { padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .sd-foot .go { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .sd-foot .go.danger { background: var(--err); border-color: var(--err); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; transition: .2s; z-index: 200;
+    background: var(--navy); color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px; pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3); max-width: calc(100vw - 32px);
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.bad { background: var(--err); }
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .error-banner { background: var(--err-bg); color: var(--err); padding: 10px 14px; border-radius: 8px; margin-top: 14px; }
+
+  /* ---- modal ---- */
+  dialog {
+    width: min(1100px, calc(100vw - 32px)); height: min(80vh, 900px); padding: 0; border: 0; border-radius: 12px;
+    background: var(--term); color: var(--term-text); box-shadow: 0 30px 80px rgba(0,0,0,.5);
+  }
+  /* the terminal takes the whole screen (dvh tracks mobile browser bars and the keyboard) */
+  #dlg { width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; border-radius: 0; }
+  #dlg .composer { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  dialog::backdrop { background: rgba(3,45,96,.55); backdrop-filter: blur(2px); }
+  .dwrap { display: flex; flex-direction: column; height: 100%; }
+  .dhead { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--brand-dark); color: #fff; }
+  .dhead b { font-size: 15px; }
+  .dhead .spacer { flex: 1; }
+  .dbody { flex: 1; overflow: auto; padding: 12px 16px; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.45; }
+  .composer { border-top: 1px solid #ffffff22; padding: 8px 12px 12px; background: #00000033; display: flex; flex-direction: column; gap: 8px; }
+  .keys { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .keys button {
+    flex: none; background: #ffffff14; color: var(--term-text); border: 1px solid #ffffff2a; border-radius: 5px;
+    padding: 3px 9px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .keys button:hover { background: #ffffff26; }
+  .sendrow { display: flex; gap: 8px; align-items: flex-end; }
+  .sendrow textarea {
+    flex: 1; resize: none; min-height: 38px; max-height: 160px; padding: 9px 11px; border-radius: 6px; border: 1px solid #ffffff33;
+    background: #ffffff10; color: #fff; font: 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .sendrow textarea:focus { outline: none; border-color: var(--cloud); box-shadow: 0 0 0 3px #1B96FF44; }
+  .sendrow button { background: var(--brand); color: #fff; border: 0; border-radius: 6px; padding: 0 16px; height: 38px; font-weight: 600; cursor: pointer; }
+  .sendrow button:hover { background: var(--cloud); }
+  .sendrow .ghost { background: #ffffff14; border: 1px solid #ffffff2a; color: var(--term-text); padding: 0; width: 38px; flex: none; display: grid; place-items: center; }
+  .sendrow .ghost:hover { background: #ffffff26; }
+  .sendrow #lang { font: 600 11px ui-monospace, Menlo, monospace; width: 34px; }
+  .sendrow #mic.rec { background: #BA0517; border-color: #BA0517; color: #fff; animation: recpulse 1.4s infinite; }
+  .sendrow #mic.off { opacity: .45; }
+  @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 #BA051799; } 50% { box-shadow: 0 0 0 7px #BA051700; } }
+
+  /* ---- cron view ---- */
+  body.v-cron .sv, body:not(.v-cron) .cv { display: none !important; }
+  .card.cron { border-top-color: var(--brand); }
+  .card.cron.off { border-top-color: var(--idle); }
+  .card.cron.off .chead, .card.cron.off .cbody { opacity: .6; }
+  .avatar.cron { background: linear-gradient(135deg, #032D60, #0176D3); }
+  .card.cron.off .avatar.cron { background: #706E6B; }
+  .cron .cname { cursor: default; word-break: normal; }
+  .cron .cname:hover { text-decoration: none; }
+  .cron .desc { color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+  .when { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+  .when dt { color: var(--muted); font-size: 12px; }
+  .when dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .when dd small { color: var(--muted); }
+  .cmd { background: var(--term); color: var(--term-text); border-radius: 6px; padding: 7px 10px; font-size: 11.5px;
+         white-space: pre-wrap; word-break: break-all; margin-top: auto; cursor: pointer; }
+  .cmd:hover { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .cmd .lg { opacity: .55; }
+  .sched { font-size: 11.5px; background: var(--idle-bg); color: var(--text); border-radius: 4px; padding: 1px 6px; }
+  .switch { margin-left: auto; flex: none; position: relative; width: 38px; height: 22px; cursor: pointer; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; background: var(--idle-bg); border-radius: 11px; transition: .15s; box-shadow: inset 0 0 0 1px var(--border); }
+  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: .15s; }
+  .switch input:checked + span { background: var(--ok); box-shadow: none; }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .croninfo { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
+  .croninfo code { background: var(--idle-bg); border-radius: 4px; padding: 0 5px; }
+  #jdlg { width: min(620px, calc(100vw - 32px)); }
+  .sd-body .row { display: flex; gap: 8px; }
+  .sd-body .row > * { flex: 1; }
+  .sd-body .row select { flex: 0 0 170px; }
+  .sd-body .hint { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .sd-body .preview { background: var(--sky); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 12px; }
+  .sd-body .preview.bad { background: var(--err-bg); color: var(--err); }
+  .sd-body textarea.mono, .sd-body input.mono { font: 13px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  #rawtext { flex: 1; width: 100%; resize: none; border: 0; padding: 12px 16px; background: transparent; color: var(--term-text);
+             font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; outline: none; }
+  .rawfoot { display: flex; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid #ffffff22; font-size: 12px; }
+  .rawfoot .err { color: #FF8A9A; flex: 1; }
+
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 760px) {
+    .bar { flex-wrap: wrap; row-gap: 10px; }
+    .bar .spacer { display: none; }
+    .bar .title { flex: 1; min-width: 0; }
+    .limits { order: 9; flex-basis: 100%; gap: 14px; }
+    .lim .ltrack { flex: 1; width: auto; min-width: 40px; }
+    .lim { flex: 1; }
+  }
+  @media (max-width: 520px) {
+    header { padding: 14px 16px 60px; }
+    main { padding: 0 16px; }
+    .grid { grid-template-columns: 1fr; }
+    .sd-body .row { flex-direction: column; }
+    .sd-body .row select { flex: none; }
+    .hide-sm { display: none; }
+    .tools input { max-width: none; margin-left: 0; flex-basis: 100%; order: 9; }
+    .dhead #dsub { display: none; }
+    .dhead { padding: 8px 10px; gap: 8px; }
+    .dbody { padding: 8px 10px; }
+    .composer { padding: 6px 8px 8px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <svg width="40" height="40" viewBox="0 0 56 56" aria-hidden="true">
+      <rect width="56" height="56" rx="14" fill="#fff" fill-opacity=".16"/>
+      <path d="M16 37a7 7 0 0 1 1-13.9A9.6 9.6 0 0 1 35 20a7.9 7.9 0 0 1 5.2 17z" fill="#fff"/>
+      <circle cx="23" cy="31" r="2.2" fill="#0176D3"/><circle cx="29" cy="31" r="2.2" fill="#0176D3"/><circle cx="35" cy="31" r="2.2" fill="#0176D3"/>
+    </svg>
+    <div class="title"><h1>AI Ops</h1><div>tmux sessions &amp; batch runs</div></div>
+    <div class="spacer"></div>
+    <div class="limits" id="limits"></div>
+    <span class="live" id="live"><i></i><span id="updated">connecting…</span></span>
+    <button class="hbtn hide-sm" id="theme" title="Toggle theme">◐</button>
+    <a class="hbtn" href="{{BASE}}/logout">Sign out</a>
+  </div>
+</header>
+
+<main>
+  <section class="kpis sv" id="kpis"></section>
+  <div class="tools">
+    <div class="seg" id="view">
+      <button data-v="sessions" class="on">Sessions</button>
+      <button data-v="cron">Cron jobs</button>
+    </div>
+    <div class="seg sv" id="kind">
+      <button data-k="all" class="on">All</button>
+      <button data-k="batch">Batches</button>
+      <button data-k="claude">Claude</button>
+    </div>
+    <input id="q" type="search" placeholder="Filter sessions or projects…">
+    <button class="tbtn sv" id="showhidden" title="Show sessions you hid">Hidden</button>
+    <button class="tbtn primary sv" id="newbtn">+ New session</button>
+    <button class="tbtn cv" id="rawbtn" title="Edit the whole crontab as text">Edit raw</button>
+    <button class="tbtn primary cv" id="newjob">+ New job</button>
+  </div>
+  <div id="err"></div>
+  <div id="groups" class="sv"></div>
+  <div id="cron" class="cv"></div>
+</main>
+
+<dialog id="dlg">
+  <div class="dwrap">
+    <div class="dhead">
+      <b id="dtitle"></b><span id="dsub" style="opacity:.75;font-size:12px"></span>
+      <span class="spacer"></span>
+      <a class="hbtn" id="dgit" target="_blank" rel="noopener" title="Open the repo's issues"><span id="dgiticon"></span><span class="hide-sm">Issues</span></a>
+      <button class="hbtn" id="dcmds">Commands ▾</button>
+      <button class="hbtn hide-sm" id="dfollow">Following</button>
+      <button class="hbtn" id="dclose">Close</button>
+    </div>
+    <div class="dbody mono" id="dbody"></div>
+    <div class="composer">
+      <div class="keys mono" id="keys">
+        <button data-k="Escape" title="Interrupt Claude">Esc</button>
+        <button data-k="Enter">⏎ Enter</button>
+        <button data-k="Up">↑</button>
+        <button data-k="Down">↓</button>
+        <button data-k="1">1</button>
+        <button data-k="2">2</button>
+        <button data-k="3">3</button>
+        <button data-k="Tab">Tab</button>
+        <button data-k="BTab" title="Shift+Tab: cycle permission mode">⇧Tab</button>
+        <button data-k="C-c">Ctrl-C</button>
+      </div>
+      <form class="sendrow" id="sendf">
+        <textarea id="msg" rows="1" placeholder="Type or dictate… Enter sends, Shift+Enter for a new line"></textarea>
+        <button type="button" class="ghost" id="lang" title="Dictation language (click to switch)">EN</button>
+        <button type="button" class="ghost" id="mic" title="Dictate (click again to stop)" aria-label="Dictate">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="cdlg" class="small">
+  <div class="sd-head" id="ctitle"></div>
+  <div class="sd-body" id="cbody"></div>
+  <div class="sd-foot"><button id="cno">Cancel</button><button class="go" id="cyes">Confirm</button></div>
+</dialog>
+
+<dialog id="ndlg" class="small">
+  <form id="nform">
+    <div class="sd-head">New Claude session</div>
+    <div class="sd-body">
+      <label>Project<select id="nproj" required></select></label>
+      <label>Session name<input id="nname" required pattern="[A-Za-z0-9_\-]{1,40}" maxlength="40" autocomplete="off"></label>
+      <label>First prompt (optional)<textarea id="nprompt" rows="3" placeholder="Leave empty to just start Claude"></textarea></label>
+      <label class="check"><input type="checkbox" id="nresume"> Continue the last conversation in this project</label>
+      <div class="err" id="nerr"></div>
+    </div>
+    <div class="sd-foot"><button type="button" id="nno">Cancel</button><button class="go" type="submit">Start session</button></div>
+  </form>
+</dialog>
+
+<dialog id="jdlg" class="small">
+  <form id="jform">
+    <div class="sd-head" id="jtitle">New cron job</div>
+    <div class="sd-body">
+      <label>Description <span class="hint">(saved as the comment above the line)</span><textarea id="jdesc" rows="2" placeholder="What it does, how to switch it off, …"></textarea></label>
+      <label>Schedule
+        <div class="row">
+          <input id="jsched" class="mono" required autocomplete="off" placeholder="m h dom mon dow, e.g. 0 3 * * *">
+          <select id="jpreset" aria-label="Schedule presets">
+            <option value="">Presets…</option>
+            <option value="*/5 * * * *">Every 5 minutes</option>
+            <option value="*/15 * * * *">Every 15 minutes</option>
+            <option value="0 * * * *">Hourly</option>
+            <option value="0 */3 * * *">Every 3 hours</option>
+            <option value="0 3 * * *">Daily 03:00</option>
+            <option value="0 8 * * 1-5">Weekdays 08:00</option>
+            <option value="0 4 * * 0">Sundays 04:00</option>
+            <option value="0 4 1 * *">Monthly, 1st 04:00</option>
+            <option value="@reboot">At boot</option>
+          </select>
+        </div>
+      </label>
+      <div class="preview" id="jprev"></div>
+      <label>Command <span class="hint">(runs with /bin/sh, PATH=/usr/bin:/bin)</span><textarea id="jcmd" class="mono" rows="3" required placeholder="cd /root/projects/my-app &amp;&amp; ./scripts/job.sh"></textarea></label>
+      <label>Log file <span class="hint">(optional, appends stdout+stderr: &gt;&gt; file 2&gt;&amp;1)</span><input id="jlog" class="mono" autocomplete="off" placeholder="/var/log/my-job.log"></label>
+      <label class="check"><input type="checkbox" id="jon" checked> Enabled</label>
+      <div class="err" id="jerr"></div>
+    </div>
+    <div class="sd-foot"><button type="button" id="jno">Cancel</button><button class="go" type="submit" id="jgo">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="ldlg">
+  <div class="dwrap">
+    <div class="dhead"><b id="ltitle"></b><span id="lsub" style="opacity:.75;font-size:12px"></span><span class="spacer"></span>
+      <button class="hbtn" id="lreload">Reload</button><button class="hbtn" id="lclose">Close</button></div>
+    <div class="dbody mono" id="lbody"></div>
+  </div>
+</dialog>
+
+<dialog id="rdlg">
+  <div class="dwrap">
+    <div class="dhead"><b>Crontab</b><span id="rsub" style="opacity:.75;font-size:12px"></span><span class="spacer"></span>
+      <button class="hbtn" id="rclose">Cancel</button></div>
+    <textarea id="rawtext" spellcheck="false"></textarea>
+    <div class="rawfoot"><span class="err" id="rerr"></span><span style="opacity:.7">Disabled jobs start with <code>#[off]</code>. A backup is kept on every save.</span>
+      <button class="hbtn" id="rsave" style="background:var(--brand);border-color:var(--brand)">Save crontab</button></div>
+  </div>
+</dialog>
+
+<div class="menu" id="menu" role="menu"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = "{{BASE}}";
+const TOUCH = matchMedia("(pointer: coarse)").matches;  // phones: don't pop the keyboard up uninvited
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let data = null, kindFilter = "all", stateFilter = null, lastOk = 0, showHidden = false;
+
+/* Quick commands. `claude: true` = only offered for Claude sessions. Every one asks for confirmation. */
+const GIT_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38v-1.33c-2.23.48-2.7-1.07-2.7-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.65-.89-3.65-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.74.54 1.49v2.2c0 .21.15.46.55.38A8 8 0 0 0 8 0z"/></svg>';
+const MODEL_NOTE = "Claude also saves this as the default model for new sessions (~/.claude/settings.json).";
+const COMMANDS = [
+  { group: "Conversation", claude: true },
+  { label: "/clear", hint: "fresh conversation", text: "/clear", claude: true },
+  { label: "/compact", hint: "summarise context", text: "/compact", claude: true },
+  { label: "/resume", hint: "pick an old chat", text: "/resume", claude: true },
+  { group: "Model", claude: true },
+  { label: "/model", hint: "open picker", text: "/model", claude: true },
+  { label: "/model opus", text: "/model opus", claude: true, note: MODEL_NOTE },
+  { label: "/model sonnet", text: "/model sonnet", claude: true, note: MODEL_NOTE },
+  { label: "/model haiku", text: "/model haiku", claude: true, note: MODEL_NOTE },
+  { group: "Info", claude: true },
+  { label: "/usage", hint: "plan limits", text: "/usage", claude: true },
+  { label: "/context", hint: "context window", text: "/context", claude: true },
+  { label: "/status", text: "/status", claude: true },
+  { group: "Control" },
+  { label: "Interrupt", hint: "Esc", keys: ["Escape"], claude: true },
+  { label: "Press Enter", hint: "⏎", keys: ["Enter"] },
+  { label: "Ctrl-C", hint: "stop process", keys: ["C-c"], danger: true },
+  { label: "/exit", hint: "quit Claude", text: "/exit", claude: true, danger: true },
+];
+
+async function post(path, body) {
+  const r = await fetch(BASE + path, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-AIDash": "1" }, body: JSON.stringify(body),
+  });
+  if (r.status === 401) { location.reload(); throw new Error("login"); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+let toastTimer;
+function toast(msg, bad) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.toggle("bad", !!bad); t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function confirmBox(title, html, { ok = "Confirm", danger = false } = {}) {
+  return new Promise((resolve) => {
+    $("#ctitle").textContent = title; $("#cbody").innerHTML = html;
+    const yes = $("#cyes"); yes.textContent = ok; yes.classList.toggle("danger", danger);
+    const d = $("#cdlg");
+    const done = (v) => { d.onclose = null; d.close(); resolve(v); };
+    yes.onclick = () => done(true); $("#cno").onclick = () => done(false);
+    d.onclose = () => resolve(false);
+    d.showModal(); yes.focus();
+  });
+}
+const byName = (n) => data?.sessions.find((x) => x.name === n);
+
+async function runCommand(name, c) {
+  let what = c.text ? `<code>${esc(c.text)} ⏎</code>` : `<code>${esc(c.hint || c.keys.join(" "))}</code>`;
+  if (c.skill) {
+    what = `<code id="cprev">${esc(c.text)} ⏎</code>
+      ${c.desc ? `<span>${esc(c.desc)}</span>` : ""}
+      <label>Arguments (optional)<input id="cargs" class="mono" autocomplete="off" placeholder="${esc(c.argHint || "none")}"></label>`;
+  }
+  const shown = confirmBox(`Send to ${name}?`, `This is typed into the session:${what}${c.note ? `<span>${esc(c.note)}</span>` : ""}`, { ok: "Send", danger: c.danger });
+  const args = $("#cargs");
+  if (args) {
+    args.oninput = () => { $("#cprev").textContent = `${c.text}${args.value.trim() ? " " + args.value.trim() : ""} ⏎`; };
+    args.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); $("#cyes").click(); } };
+    args.focus();
+  }
+  if (!await shown) return;
+  const text = c.text && args?.value.trim() ? `${c.text} ${args.value.trim()}` : c.text;
+  try {
+    await (text ? post("/api/send", { s: name, text }) : post("/api/keys", { s: name, keys: c.keys }));
+    toast(`Sent ${c.label} to ${name}`);
+    afterAction();
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ---- dropdown ---- */
+function openMenu(anchor, items) {
+  const m = $("#menu");
+  m.innerHTML = "";
+  items.forEach((it) => {
+    if (it.group) { m.insertAdjacentHTML("beforeend", `<h6>${esc(it.group)}</h6>`); return; }
+    if (it.sep) { m.insertAdjacentHTML("beforeend", "<hr>"); return; }
+    const b = document.createElement("button");
+    b.className = (it.danger ? "danger " : "") + (it.skill ? "skill" : "");
+    b.innerHTML = it.skill
+      ? `<span>${esc(it.label)}</span>${it.desc ? `<em>${esc(it.desc)}</em>` : ""}`
+      : `<span>${esc(it.label)}</span>${it.hint ? `<small>${esc(it.hint)}</small>` : ""}`;
+    if (it.desc) b.title = it.desc;
+    b.onclick = () => { closeMenu(); it.run(); };
+    m.appendChild(b);
+  });
+  // Inside an open <dialog> the menu must live in the dialog's top layer to be visible/clickable.
+  (anchor.closest("dialog") || document.body).appendChild(m);
+  m.classList.add("open");
+  const r = anchor.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+  m.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
+  m.style.top = (r.bottom + h + 8 > innerHeight && r.top - h - 6 > 0 ? r.top - h - 6 : r.bottom + 6) + "px";
+}
+function closeMenu() { $("#menu").classList.remove("open"); }
+document.addEventListener("click", (e) => { if (!e.target.closest("#menu, [data-menu]")) closeMenu(); }, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+
+function commandItems(s) {
+  const list = COMMANDS.filter((c) => s.kind === "claude" || !c.claude);
+  const skill = (k) => ({ label: "/" + k.name, text: "/" + k.name, desc: k.desc, argHint: k.hint, skill: true });
+  const sk = s.skills || { project: [], user: [] };
+  const skills = [
+    ...(sk.project.length ? [{ group: `${s.project} skills` }, ...sk.project.map(skill)] : []),
+    ...(sk.user.length ? [{ group: "My skills" }, ...sk.user.map(skill)] : []),
+  ];
+  return [...skills, ...list].map((c) => c.group ? c : { ...c, run: () => runCommand(s.name, c) });
+}
+function cardMenu(anchor, name) {
+  const s = byName(name);
+  if (!s) return;
+  openMenu(anchor, [
+    { label: "Open terminal", hint: "type & watch", run: () => openPane(name) },
+    ...commandItems(s),
+    { sep: true },
+    s.hidden
+      ? { label: "Show on dashboard again", run: () => setHidden(s, false) }
+      : { label: "Hide from dashboard", hint: "keeps running", run: () => setHidden(s, true) },
+    { label: "End session…", hint: "kill tmux session", danger: true, run: () => killSession(s) },
+  ]);
+}
+async function setHidden(s, hidden) {
+  try {
+    await post("/api/hide", { s: s.name, created: s.created, hidden });
+    s.hidden = hidden; render();
+    toast(hidden ? `Hid ${s.name}. Use “Hidden” to see it again.` : `${s.name} is visible again`);
+  } catch (e) { toast(e.message, true); }
+}
+async function killSession(s) {
+  const busy = s.state === "working" ? "<p><b style='color:var(--err)'>It is working right now.</b></p>" : "";
+  if (!await confirmBox(`End session ${s.name}?`,
+      `${busy}<p>This kills the tmux session and everything running in it (${esc(s.kind)} in ${esc(s.project)}). It cannot be undone.</p>`,
+      { ok: "End session", danger: true })) return;
+  try {
+    await post("/api/kill", { s: s.name });
+    if (paneName === s.name) $("#dlg").close();
+    toast(`Ended ${s.name}`); refresh();
+  } catch (e) { toast(e.message, true); }
+}
+function afterAction() { setTimeout(loadPane, 400); setTimeout(refresh, 900); }
+
+try { const t = localStorage.getItem("aidash-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+$("#theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("aidash-theme", next); } catch {}
+};
+
+function ago(sec) {
+  if (sec == null) return "";
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 60) return sec + "s";
+  if (sec < 3600) return Math.floor(sec / 60) + "m";
+  if (sec < 86400) return Math.floor(sec / 3600) + "h " + Math.floor((sec % 3600) / 60) + "m";
+  return Math.floor(sec / 86400) + "d " + Math.floor((sec % 86400) / 3600) + "h";
+}
+
+const ICONS = {
+  batch: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h6"/><path d="M17 15l3 3-3 3"/></svg>',
+  claude: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
+  shell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 8l4 4-4 4M12 17h7"/></svg>',
+};
+
+const KPI = [
+  { key: "working", label: "Working", color: "#0176D3", bg: "#D8EDFF", icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0176D3" stroke-width="2.2" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg>' },
+  { key: "attention", label: "Needs attention", color: "#DD7A01", bg: "#FEF1C7", icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DD7A01" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>' },
+  { key: "batches", label: "Batches running", color: "#014486", bg: "#EAF5FE", icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#014486" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h6"/></svg>' },
+  { key: "idle", label: "Idle / finished", color: "#2E844A", bg: "#CDEFC4", icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2E844A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' },
+];
+const kpiMatch = {
+  working: (s) => s.state === "working",
+  attention: (s) => s.state === "attention" || s.state === "limit",
+  batches: (s) => s.kind === "batch" && (s.state === "working" || s.state === "waiting"),
+  idle: (s) => ["idle", "done"].includes(s.state),
+};
+
+function renderKpis() {
+  const ss = (data?.sessions || []).filter((s) => !s.hidden);
+  $("#kpis").innerHTML = KPI.map((k) => `
+    <div class="kpi ${stateFilter === k.key ? "on" : ""}" data-k="${k.key}">
+      <div class="ic" style="background:${k.bg}">${k.icon}</div>
+      <div><b>${ss.filter(kpiMatch[k.key]).length}</b><span>${k.label}</span></div>
+    </div>`).join("");
+  document.querySelectorAll(".kpi").forEach((el) => el.onclick = () => {
+    stateFilter = stateFilter === el.dataset.k ? null : el.dataset.k; render();
+  });
+}
+
+function batchBlock(s, now) {
+  const b = s.batch;
+  if (!b) return s.batch_cmd ? `<div class="current mono" style="font-size:12px">${esc(s.batch_cmd)}</div>` : "";
+  let h = "";
+  const merged = b.merged.length, failed = b.failed.length, planned = b.planned || 0;
+  if (planned) {
+    const cur = b.current ? 1 : 0, pct = (n) => (100 * n / Math.max(planned, merged + failed + cur)) + "%";
+    h += `<div class="progress"><div class="track">
+        <div class="m" style="width:${pct(merged)}"></div><div class="f" style="width:${pct(failed)}"></div>
+        ${s.state === "working" && cur ? `<div class="c" style="width:${pct(1)}"></div>` : ""}
+      </div><span><b style="color:var(--text)">${merged}</b>/${planned} merged${failed ? ` · ${failed} not merged` : ""}</span></div>`;
+  }
+  if (b.current && (s.state === "working" || s.state === "waiting" || s.state === "limit")) {
+    h += `<div class="current"><b>#${b.current.issue}</b> ${esc(b.current.title)}
+          <small>${esc(b.current.how)} · since ${esc(b.current.t)}</small></div>`;
+  }
+  if (b.limit && s.state !== "working") h += `<div class="alert">⚠ ${esc(b.limit)}</div>`;
+  if (b.events.length) {
+    h += `<ul class="events">` + b.events.slice(-4).map((e) => {
+      const cls = ["merged", "limit", "info"].includes(e.outcome) ? e.outcome : "other";
+      return `<li><span class="t">${esc(e.t)}</span><span class="o o-${cls}">${e.issue ? "#" + e.issue + " " : ""}${esc(e.outcome === "info" ? "info" : e.outcome)}</span>
+              <span class="x" title="${esc(e.text)}">${e.dur ? esc(e.dur) + " · " : ""}${esc(e.text)}</span></li>`;
+    }).join("") + `</ul>`;
+  }
+  return h;
+}
+
+function claudeBlock(s) {
+  let h = "";
+  if (s.task?.spinner) h += `<div class="spin">⟳ ${esc(s.task.spinner)}</div>`;
+  if (s.task?.prompt) h += `<div class="prompt"><small>Last prompt</small>${esc(s.task.prompt)}</div>`;
+  return h;
+}
+
+/* collapsed groups & cards: per-browser, remembered across reloads */
+const collapsed = (() => { try { return JSON.parse(localStorage.getItem("aidash-collapsed")) || {}; } catch { return {}; } })();
+collapsed.g ||= []; collapsed.c ||= [];
+function toggleCollapsed(kind, key) {
+  const a = collapsed[kind], i = a.indexOf(key);
+  i < 0 ? a.push(key) : a.splice(i, 1);
+  try { localStorage.setItem("aidash-collapsed", JSON.stringify(collapsed)); } catch {}
+  render();
+}
+
+function card(s, now) {
+  const body = s.kind === "batch" ? batchBlock(s, now) : s.kind === "claude" ? claudeBlock(s) : "";
+  const preview = (s.preview || []).slice(s.kind === "batch" ? -5 : -7).join("\n");  // server-escaped HTML
+  return `<article class="card ${s.state}${s.hidden ? " is-hidden" : ""}${collapsed.c.includes(s.name) ? " collapsed" : ""}">
+    <div class="chead">
+      <div class="avatar ${s.kind}" data-collapse="${esc(s.name)}" title="Collapse / expand">${ICONS[s.kind] || ICONS.shell}</div>
+      <div style="min-width:0">
+        <div class="cname" data-collapse="${esc(s.name)}" title="Collapse / expand">${esc(s.name)}</div>
+        <div class="csub"><span class="pill">${esc(s.project)}</span>${s.hidden ? '<span class="pill hid">hidden</span>' : ""}${s.kind}${s.attached ? " · attached" : ""}${s.windows > 1 ? ` · ${s.windows} windows` : ""}</div>
+      </div>
+      <span class="badge b-${s.state}"><i></i>${esc(s.label)}</span>
+    </div>
+    <div class="cbody">
+      ${body}
+      ${preview ? `<div class="term mono" data-open="${esc(s.name)}" title="Open terminal">${preview}</div>` : ""}
+    </div>
+    <div class="cfoot">
+      <span title="Last output">● ${ago(now - s.activity)} ago</span>
+      ${s.running_for != null ? `<span title="Batch process runtime">⏱ ${ago(s.running_for)}</span>` : ""}
+      <span title="Session age">⌂ ${ago(now - s.created)}</span>
+      ${s.issues_url ? `<a class="gitbtn" href="${esc(s.issues_url)}" target="_blank" rel="noopener" title="Issues: ${esc(s.issues_url.replace("https://", ""))}" aria-label="Open repo issues">${GIT_SVG}</a>` : ""}
+      <button data-s="${esc(s.name)}" class="open">Open</button>
+      <button data-s="${esc(s.name)}" class="more" data-menu title="Commands &amp; options" aria-label="More">⋯</button>
+    </div>
+  </article>`;
+}
+
+const LIMITS = [
+  { key: "five_hour", label: "5h", span: 5 * 3600, hint: "5-hour window" },
+  { key: "seven_day", label: "Week", span: 7 * 86400, hint: "7-day window" },
+];
+function renderLimits() {
+  const L = data?.limits, rl = L?.rate_limits, el = $("#limits");
+  if (!rl) { el.innerHTML = ""; return; }
+  const now = data.now, age = now - L.updated;
+  const fmtReset = (t) => new Date(t * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+  el.classList.toggle("stale", age > 3600);
+  el.title = `Usage limits as of ${ago(age)} ago (Claude Code status line). The marker shows how much of each window has passed.`;
+  el.innerHTML = LIMITS.filter((l) => rl[l.key]).map((l) => {
+    const { used_percentage: pct, resets_at: at } = rl[l.key];
+    if (at && at <= now) {  // the window rolled over after the last reading
+      return `<div class="lim reset" title="${l.hint}: reset ${ago(now - at)} ago, no reading since"><span>${l.label}</span><div class="ltrack"></div><b>–</b></div>`;
+    }
+    const level = pct >= 90 ? "crit" : pct >= 75 ? "warn" : "";
+    const elapsed = at ? Math.min(100, Math.max(0, 100 * (1 - (at - now) / l.span))) : null;
+    return `<div class="lim ${level}" title="${l.hint}: ${pct}% used${at ? ` · resets ${fmtReset(at)}` : ""}${elapsed != null ? ` · ${elapsed.toFixed(0)}% of the window passed (marker)` : ""}">
+      <span>${l.label}</span>
+      <div class="ltrack"><div class="lfill" style="width:${Math.min(100, pct)}%"></div>${elapsed != null ? `<i class="lpace" style="left:${elapsed}%"></i>` : ""}</div>
+      <b>${Math.round(pct)}%</b>${at ? `<small>${ago(at - now)}</small>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function render() {
+  renderLimits();
+  renderKpis();
+  if (!data) return;
+  const now = data.now, q = $("#q").value.trim().toLowerCase();
+  $("#err").innerHTML = data.ok ? "" : `<div class="error-banner">Could not read tmux: ${esc(data.error)}</div>`;
+  const nHidden = data.sessions.filter((s) => s.hidden).length;
+  $("#showhidden").textContent = showHidden ? `Hide hidden (${nHidden})` : `Hidden (${nHidden})`;
+  $("#showhidden").classList.toggle("on", showHidden);
+  $("#showhidden").style.display = nHidden || showHidden ? "" : "none";
+  const list = data.sessions.filter((s) =>
+    (showHidden || !s.hidden) &&
+    (kindFilter === "all" || s.kind === kindFilter) &&
+    (!stateFilter || kpiMatch[stateFilter](s)) &&
+    (!q || (s.name + " " + s.project + " " + (s.task?.prompt || "")).toLowerCase().includes(q)));
+  const groups = {};
+  list.forEach((s) => (groups[s.family] ||= []).push(s));
+  const names = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b));
+  $("#groups").innerHTML = names.length ? names.map((g) => `
+    <section class="group${collapsed.g.includes(g) ? " collapsed" : ""}">
+      <h2 data-group="${esc(g)}" title="Collapse / expand"><span class="chev">▼</span>${esc(g)} <span class="count">${groups[g].length}</span></h2>
+      <div class="grid">${groups[g].map((s) => card(s, now)).join("")}</div>
+    </section>`).join("") : `<div class="empty">No sessions match.</div>`;
+  document.querySelectorAll(".cfoot .open").forEach((b) => b.onclick = () => openPane(b.dataset.s));
+  document.querySelectorAll(".cfoot .more").forEach((b) => b.onclick = (e) => { e.stopPropagation(); cardMenu(b, b.dataset.s); });
+}
+
+$("#groups").addEventListener("click", (e) => {
+  const g = e.target.closest("[data-group]"), c = e.target.closest("[data-collapse]"), o = e.target.closest("[data-open]");
+  if (o) { if (!getSelection().toString()) openPane(o.dataset.open); }  // a drag to copy text doesn't open it
+  else if (g) toggleCollapsed("g", g.dataset.group); else if (c) toggleCollapsed("c", c.dataset.collapse);
+});
+
+async function refresh() {
+  try {
+    const r = await fetch(BASE + "/api/sessions", { cache: "no-store" });
+    if (r.status === 401) { location.reload(); return; }
+    data = await r.json();
+    lastOk = Date.now();
+    render();
+  } catch (e) { /* keep last data, the indicator goes stale */ }
+  tick();
+}
+function tick() {
+  const age = (Date.now() - lastOk) / 1000;
+  $("#live").classList.toggle("stale", !lastOk || age > 20);
+  $("#updated").textContent = lastOk ? (age < 3 ? "live" : `${ago(age)} ago`) : "connecting…";
+}
+
+document.querySelectorAll("#kind button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("#kind button").forEach((x) => x.classList.toggle("on", x === b));
+  kindFilter = b.dataset.k; render();
+});
+$("#q").oninput = () => (view === "cron" ? renderCron() : render());
+
+/* ---- full output modal ---- */
+let paneName = null, paneTimer = null, follow = true;
+async function loadPane() {
+  if (!paneName) return;
+  const r = await fetch(BASE + "/api/pane?s=" + encodeURIComponent(paneName), { cache: "no-store" });
+  const j = await r.json();
+  const el = $("#dbody");
+  if (j.html) el.innerHTML = j.html.join("\n");  // escaped and colourised server-side
+  else el.textContent = j.error || "error";
+  if (follow) el.scrollTop = el.scrollHeight;
+}
+function openPane(name) {
+  const s = data.sessions.find((x) => x.name === name);
+  paneName = name; follow = true; $("#dfollow").textContent = "Following";
+  $("#dtitle").textContent = name;
+  $("#dsub").textContent = s ? `${s.project} · ${s.label}` : "";
+  $("#dbody").textContent = "loading…";
+  $("#dcmds").style.display = s ? "" : "none";
+  $("#dgit").style.display = s?.issues_url ? "" : "none";
+  if (s?.issues_url) $("#dgit").href = s.issues_url;
+  $("#dlg").showModal();
+  if (!TOUCH) $("#msg").focus();
+  loadPane();
+  paneTimer = setInterval(loadPane, 3000);
+}
+$("#dclose").onclick = () => $("#dlg").close();
+$("#dlg").addEventListener("close", () => { stopDictation(); clearInterval(paneTimer); paneName = null; closeMenu(); document.body.appendChild($("#menu")); });
+$("#dcmds").onclick = (e) => { e.stopPropagation(); const s = byName(paneName); if (s) openMenu(e.currentTarget, commandItems(s)); };
+$("#dcmds").dataset.menu = "";
+$("#dgiticon").innerHTML = GIT_SVG; $("#dgiticon").style.display = "inline-flex";
+document.querySelectorAll("#keys button").forEach((b) => b.onclick = async () => {
+  try { await post("/api/keys", { s: paneName, keys: [b.dataset.k] }); follow = true; afterAction(); }
+  catch (e) { toast(e.message, true); }
+});
+const msg = $("#msg");
+const grow = () => { msg.style.height = "auto"; msg.style.height = Math.min(msg.scrollHeight, 160) + "px"; };
+msg.addEventListener("input", grow);
+msg.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("#sendf").requestSubmit(); }
+});
+$("#sendf").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = msg.value;
+  if (!paneName) return;
+  try {
+    await post("/api/send", { s: paneName, text, enter: true });
+    stopDictation(); msg.value = ""; grow(); follow = true; $("#dfollow").textContent = "Following"; afterAction();
+  } catch (err) { toast(err.message, true); }
+};
+
+/* ---- dictation: the browser's built-in speech recognition (free, no server).
+   Chrome/Edge/Safari incl. iOS & Android; not Firefox. Text lands in the box for review, never auto-sent. ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const LANGS = [["EN", "en-US"], ["DE", "de-DE"]];
+let lang = 0, rec = null;
+try { lang = Math.max(0, LANGS.findIndex((l) => l[0] === localStorage.getItem("aidash-lang"))); } catch {}
+$("#lang").textContent = LANGS[lang][0];
+$("#lang").onclick = () => {
+  lang = (lang + 1) % LANGS.length;
+  $("#lang").textContent = LANGS[lang][0];
+  try { localStorage.setItem("aidash-lang", LANGS[lang][0]); } catch {}
+  if (rec) { stopDictation(); startDictation(); }
+};
+if (!SR) { $("#mic").classList.add("off"); $("#lang").style.display = "none"; }
+let dictating = false; // user wants the mic on; the browser ending a session doesn't change that
+function stopDictation() { dictating = false; if (rec) { const r = rec; rec = null; r.stop(); } $("#mic").classList.remove("rec"); }
+function startDictation() { dictating = true; listen(); $("#mic").classList.add("rec"); }
+/* Browsers end recognition on their own after a pause (mobile after every phrase), so
+   onend just starts a fresh session until the user clicks stop. Each session appends
+   to whatever is in the box. */
+function listen() {
+  const r = new SR();
+  r.lang = LANGS[lang][1]; r.continuous = true; r.interimResults = true;
+  const base = msg.value.trim() ? msg.value.replace(/\s*$/, " ") : "";
+  let fatal = false;
+  r.onresult = (e) => {
+    if (rec !== r) return;
+    // Rebuild from the full list each time. Android Chrome reports every growing
+    // partial ("I", "I don't", "I don't want") as its own final result, so a result
+    // that extends or repeats the previous one replaces it instead of appending.
+    const segs = [];
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript.trim();
+      if (!t) continue;
+      const last = segs.length ? segs[segs.length - 1].toLowerCase() : null;
+      const low = t.toLowerCase();
+      if (last !== null && low.startsWith(last)) segs[segs.length - 1] = t;
+      else if (last === null || !last.startsWith(low)) segs.push(t);
+    }
+    msg.value = base + segs.join(" "); grow();
+    msg.scrollTop = msg.scrollHeight;
+  };
+  r.onerror = (e) => {
+    if (e.error === "no-speech" || e.error === "aborted") return;
+    fatal = true;
+    toast(e.error === "not-allowed" || e.error === "service-not-allowed"
+      ? "Microphone access is blocked. Allow it in the browser’s site settings." : "Dictation error: " + e.error, true);
+  };
+  r.onend = () => {
+    if (rec !== r) return;
+    rec = null;
+    if (dictating && !fatal) { try { listen(); return; } catch {} }
+    stopDictation();
+  };
+  rec = r;
+  r.start();
+}
+$("#mic").onclick = () => {
+  if (!SR) return toast("This browser has no built-in dictation. Use Chrome, Edge or Safari, or your keyboard’s mic key.", true);
+  if (rec) stopDictation(); else { try { startDictation(); } catch (e) { toast("Dictation error: " + e.message, true); } }
+  if (!TOUCH) msg.focus();
+};
+
+/* ---- hidden toggle & new session ---- */
+$("#showhidden").onclick = () => { showHidden = !showHidden; render(); };
+let projectList = null;
+const slug = (p) => p.replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 36);
+function suggestName(p) {
+  const taken = new Set((data?.sessions || []).map((s) => s.name));
+  let base = slug(p), n = base, i = 2;
+  while (taken.has(n)) n = `${base}-${i++}`;
+  return n;
+}
+$("#newbtn").onclick = async () => {
+  $("#nerr").textContent = ""; $("#nprompt").value = ""; $("#nresume").checked = false;
+  try {
+    projectList ||= (await (await fetch(BASE + "/api/projects", { cache: "no-store" })).json()).projects;
+  } catch { return toast("Could not load projects", true); }
+  const sel = $("#nproj");
+  sel.innerHTML = projectList.map((p) => `<option>${esc(p.name)}</option>`).join("");
+  const fam = data?.sessions.find((s) => !s.hidden)?.project;
+  if (fam && projectList.some((p) => p.name === fam)) sel.value = fam;
+  $("#nname").value = suggestName(sel.value);
+  $("#ndlg").showModal();
+};
+$("#nproj").onchange = () => { $("#nname").value = suggestName($("#nproj").value); };
+$("#nno").onclick = () => $("#ndlg").close();
+$("#nform").onsubmit = async (e) => {
+  e.preventDefault();
+  const name = $("#nname").value.trim();
+  try {
+    await post("/api/new", { project: $("#nproj").value, name, prompt: $("#nprompt").value, resume: $("#nresume").checked });
+    $("#ndlg").close();
+    toast(`Started ${name}`);
+    await refresh();
+    openPane(name);
+  } catch (err) { $("#nerr").textContent = err.message; }
+};
+$("#dfollow").onclick = () => { follow = !follow; $("#dfollow").textContent = follow ? "Following" : "Paused"; };
+$("#dbody").addEventListener("scroll", (e) => {
+  const el = e.target, atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+  if (!atBottom && follow) { follow = false; $("#dfollow").textContent = "Paused"; }
+});
+
+/* ---- cron jobs: the host user's crontab, edited through /api/cron/* ---- */
+let view = "sessions", cron = null, cronAt = 0;
+const CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const LOG_RE = /\s+>>\s*(\S+)\s+2>&1\s*$/;
+function setView(v) {
+  view = v;
+  document.body.classList.toggle("v-cron", v === "cron");
+  document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+  $("#q").placeholder = v === "cron" ? "Filter jobs…" : "Filter sessions or projects…";
+  history.replaceState(null, "", v === "cron" ? "#cron" : location.pathname);
+  if (v === "cron") loadCron();
+}
+document.querySelectorAll("#view button").forEach((b) => b.onclick = () => setView(b.dataset.v));
+
+async function getJSON(path) {
+  const r = await fetch(BASE + path, { cache: "no-store" });
+  if (r.status === 401) { location.reload(); throw new Error("login"); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function loadCron() {
+  try { cron = await getJSON("/api/cron"); cronAt = Date.now(); }
+  catch (e) { cron = { available: false, error: e.message }; }
+  renderCron();
+}
+const cronNow = () => (cron?.now || 0) + Math.round((Date.now() - cronAt) / 1000);
+function fmtWhen(t) {
+  const d = new Date(t * 1000), today = new Date();
+  const hm = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return hm;
+  return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + " " + hm;
+}
+const jobTitle = (j) => j.description.split("\n")[0] || j.command.replace(LOG_RE, "").split(/\s*(?:&&|;)\s*/).pop().slice(0, 80);
+
+function cronCard(j, now) {
+  const next = j.next.find((t) => t > now);
+  const cmd = j.command.replace(LOG_RE, ""), log = j.command.match(LOG_RE)?.[1];
+  const rest = j.description.split("\n").slice(1).join("\n").trim();
+  return `<article class="card cron ${j.enabled ? "" : "off"}">
+    <div class="chead">
+      <div class="avatar cron">${CLOCK}</div>
+      <div style="min-width:0">
+        <div class="cname">${esc(jobTitle(j))}</div>
+        <div class="csub">${j.project ? `<span class="pill">${esc(j.project)}</span>` : ""}<span>${esc(j.human)}</span><code class="sched mono">${esc(j.schedule)}</code></div>
+      </div>
+      <label class="switch" title="${j.enabled ? "Enabled: click to pause" : "Paused: click to enable"}"><input type="checkbox" data-toggle="${j.id}" ${j.enabled ? "checked" : ""}><span></span></label>
+    </div>
+    <div class="cbody">
+      ${rest ? `<div class="desc">${esc(rest)}</div>` : ""}
+      <dl class="when">
+        <dt>Next</dt><dd>${!j.enabled ? "paused" : j.schedule === "@reboot" ? "at next boot" : next ? `${fmtWhen(next)} <small>in ${ago(next - now)}</small>` : "–"}</dd>
+        <dt>Last</dt><dd>${j.last ? `${fmtWhen(j.last)} <small>${ago(now - j.last)} ago</small>` : `<small>${cron.syslog ? "not in syslog" : "unknown"}</small>`}</dd>
+        ${log ? `<dt>Log</dt><dd class="mono" style="font-size:12px">${esc(log)}${j.log_mtime ? ` <small>written ${ago(now - j.log_mtime)} ago</small>` : " <small>not created yet</small>"}</dd>` : ""}
+      </dl>
+      <div class="cmd mono" data-edit="${j.id}" title="Edit">${esc(cmd)}${log ? `<span class="lg"> &gt;&gt; ${esc(log)} 2&gt;&amp;1</span>` : ""}</div>
+    </div>
+    <div class="cfoot">
+      ${log ? `<button data-log="${j.id}" style="margin-left:0">Log</button>` : ""}
+      <button data-run="${j.id}" ${log ? 'style="margin-left:auto"' : ""}>Run now</button>
+      <button data-edit="${j.id}" style="margin-left:0">Edit</button>
+      <button data-jmenu="${j.id}" class="more" data-menu title="More" aria-label="More">⋯</button>
+    </div>
+  </article>`;
+}
+function renderCron() {
+  const el = $("#cron");
+  if (!cron) { el.innerHTML = `<div class="empty">Loading…</div>`; return; }
+  if (!cron.available) {
+    el.innerHTML = `<div class="error-banner">${cron.error ? esc(cron.error) : `No writable crontab at <code>${esc(cron.path)}</code>. Mount the cron spool (CRON_DIR in .env, see README).`}</div>`;
+    return;
+  }
+  const now = cronNow(), q = $("#q").value.trim().toLowerCase();
+  const jobs = cron.jobs.filter((j) => !q || `${j.description} ${j.command} ${j.project || ""}`.toLowerCase().includes(q));
+  const groups = {};
+  jobs.forEach((j) => (groups[j.project ? family(j.project) : "other"] ||= []).push(j));
+  const names = Object.keys(groups).sort((a, b) => (a === "other") - (b === "other") || a.localeCompare(b));
+  const env = Object.entries(cron.env || {});
+  el.innerHTML = `<div class="croninfo">Crontab of <b>${esc(cron.user)}</b> · ${cron.jobs.length} jobs, ${cron.jobs.filter((j) => !j.enabled).length} paused ·
+      the server runs on ${esc(cron.tz)}, times below are your local time${env.length ? ` · env: ${env.map(([k, v]) => `<code>${esc(k)}=${esc(v)}</code>`).join(" ")}` : ""}</div>` +
+    (names.length ? names.map((g) => `
+      <section class="group${collapsed.g.includes("cron:" + g) ? " collapsed" : ""}">
+        <h2 data-group="cron:${esc(g)}" title="Collapse / expand"><span class="chev">▼</span>${esc(g)} <span class="count">${groups[g].length}</span></h2>
+        <div class="grid">${groups[g].map((j) => cronCard(j, now)).join("")}</div>
+      </section>`).join("") : `<div class="empty">${cron.jobs.length ? "No jobs match." : "No cron jobs yet."}</div>`);
+}
+// same grouping as the server's family(): strip -dev/_dev/-demo/_demo, then cut at "_"
+function family(p) { return p.toLowerCase().replace(/[-_](dev|demo)$/, "").split("_")[0] || p; }
+const jobById = (id) => cron?.jobs.find((j) => j.id === +id);
+
+$("#cron").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-group],[data-edit],[data-run],[data-log],[data-jmenu]");
+  if (!t) return;
+  const d = t.dataset;
+  if (d.group) { const a = collapsed.g, i = a.indexOf(d.group); i < 0 ? a.push(d.group) : a.splice(i, 1);
+    try { localStorage.setItem("aidash-collapsed", JSON.stringify(collapsed)); } catch {} renderCron(); }
+  else if (d.edit) { if (!getSelection().toString()) editJob(jobById(d.edit)); }
+  else if (d.run) runJob(jobById(d.run));
+  else if (d.log) showLog(jobById(d.log));
+  else if (d.jmenu) {
+    e.stopPropagation();
+    const j = jobById(d.jmenu);
+    openMenu(t, [
+      { label: "Edit…", run: () => editJob(j) },
+      { label: "Duplicate…", hint: "as a new job", run: () => editJob({ ...j, id: null, enabled: false }) },
+      { label: j.enabled ? "Pause" : "Enable", run: () => cronOp("toggle", j, { enabled: !j.enabled }) },
+      { sep: true },
+      { label: "Delete job…", danger: true, run: () => deleteJob(j) },
+    ]);
+  }
+});
+$("#cron").addEventListener("change", (e) => {
+  const t = e.target.closest("[data-toggle]");
+  if (t) cronOp("toggle", jobById(t.dataset.toggle), { enabled: t.checked });
+});
+
+async function cronOp(op, j, extra = {}) {
+  try {
+    await post("/api/cron/" + op, { rev: cron.rev, ...(j ? { id: j.id, raw: j.raw } : {}), ...extra });
+    const what = { toggle: extra.enabled ? "Enabled" : "Paused", delete: "Deleted", update: "Saved", create: "Created" }[op];
+    toast(`${what}${j ? ": " + jobTitle(j) : ""}`);
+    await loadCron();
+    return true;
+  } catch (e) { toast(e.message, true); await loadCron(); return false; }
+}
+async function deleteJob(j) {
+  if (!await confirmBox("Delete this cron job?", `<code>${esc(j.schedule)} ${esc(j.command)}</code><p>Its comment goes too. The previous crontab is kept as a backup in data/cron-backups.</p>`, { ok: "Delete", danger: true })) return;
+  cronOp("delete", j);
+}
+async function runJob(j) {
+  if (!await confirmBox("Run this job now?", `<code>${esc(j.command)}</code><p>It runs in a new tmux session (cron's environment: /bin/sh, minimal PATH). If it writes a log, the new lines show in the terminal.</p>`, { ok: "Run now" })) return;
+  try {
+    const r = await post("/api/cron/run", { id: j.id, raw: j.raw });
+    toast(`Started in tmux session ${r.name}`);
+    setView("sessions");
+    await refresh();
+    openPane(r.name);
+  } catch (e) { toast(e.message, true); }
+}
+
+/* edit / create */
+let editing = null, prevTimer = null;
+function editJob(j) {
+  editing = j && j.id != null ? j : null;
+  const cmd = j?.command || "", log = cmd.match(LOG_RE)?.[1] || "";
+  $("#jtitle").textContent = editing ? "Edit cron job" : "New cron job";
+  $("#jgo").textContent = editing ? "Save" : "Create job";
+  $("#jdesc").value = j?.description || "";
+  $("#jsched").value = j?.schedule || "0 3 * * *";
+  $("#jcmd").value = cmd.replace(LOG_RE, "");
+  $("#jlog").value = log;
+  $("#jon").checked = j ? j.enabled : true;
+  $("#jpreset").value = ""; $("#jerr").textContent = "";
+  $("#jdlg").showModal();
+  preview();
+  if (!TOUCH) (editing ? $("#jcmd") : $("#jdesc")).focus();
+}
+async function preview() {
+  const s = $("#jsched").value.trim(), el = $("#jprev");
+  if (!s) { el.textContent = ""; return; }
+  try {
+    const p = await getJSON("/api/cron/preview?s=" + encodeURIComponent(s));
+    if ($("#jsched").value.trim() !== s) return;
+    el.classList.remove("bad");
+    el.innerHTML = `<b>${esc(p.human)}</b>${p.next.length ? " · next: " + p.next.slice(0, 3).map(fmtWhen).map(esc).join(", ") : ""}`;
+  } catch (e) { el.classList.add("bad"); el.textContent = e.message; }
+}
+$("#jsched").oninput = () => { clearTimeout(prevTimer); prevTimer = setTimeout(preview, 250); };
+$("#jpreset").onchange = () => { if ($("#jpreset").value) { $("#jsched").value = $("#jpreset").value; preview(); } };
+$("#jno").onclick = () => $("#jdlg").close();
+$("#newjob").onclick = () => editJob(null);
+$("#jform").onsubmit = async (e) => {
+  e.preventDefault();
+  const log = $("#jlog").value.trim();
+  const command = $("#jcmd").value.replace(/\s*\n\s*/g, " ").trim() + (log ? ` >> ${log} 2>&1` : "");
+  const body = { schedule: $("#jsched").value, command, description: $("#jdesc").value, enabled: $("#jon").checked };
+  try {
+    await post("/api/cron/" + (editing ? "update" : "create"), { rev: cron.rev, ...(editing ? { id: editing.id, raw: editing.raw } : {}), ...body });
+    $("#jdlg").close();
+    toast(editing ? "Saved" : "Created");
+    loadCron();
+  } catch (err) { $("#jerr").textContent = err.message; }
+};
+
+/* log viewer */
+let logJob = null;
+async function loadLog() {
+  try {
+    const r = await getJSON("/api/cron/log?id=" + logJob.id);
+    $("#lsub").textContent = r.missing ? "not created yet" : `${r.path} · written ${ago(cronNow() - r.mtime)} ago`;
+    const el = $("#lbody");
+    el.textContent = r.missing ? "The log file doesn't exist yet: the job hasn't written to it." : (r.lines.join("\n") || "(empty)");
+    el.scrollTop = el.scrollHeight;
+  } catch (e) { $("#lbody").textContent = e.message; }
+}
+function showLog(j) { logJob = j; $("#ltitle").textContent = jobTitle(j); $("#lsub").textContent = ""; $("#lbody").textContent = "loading…"; $("#ldlg").showModal(); loadLog(); }
+$("#lreload").onclick = loadLog;
+$("#lclose").onclick = () => $("#ldlg").close();
+
+/* raw editor: the escape hatch for anything the form doesn't cover */
+let rawRev = null;
+$("#rawbtn").onclick = async () => {
+  try {
+    const r = await getJSON("/api/cron/raw");
+    rawRev = r.rev; $("#rawtext").value = r.text; $("#rerr").textContent = "";
+    $("#rsub").textContent = cron?.user ? `of ${cron.user}` : "";
+    $("#rdlg").showModal();
+  } catch (e) { toast(e.message, true); }
+};
+$("#rclose").onclick = () => $("#rdlg").close();
+$("#rsave").onclick = async () => {
+  try {
+    await post("/api/cron/raw", { text: $("#rawtext").value, rev: rawRev });
+    $("#rdlg").close(); toast("Crontab saved"); loadCron();
+  } catch (e) { $("#rerr").textContent = e.message; }
+};
+
+if (location.hash === "#cron") setView("cron");
+setInterval(() => { if (view === "cron" && !document.hidden && !document.querySelector("dialog[open]")) {
+  if (Date.now() - cronAt > 30000) loadCron(); else renderCron(); } }, 5000);
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+setInterval(tick, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>
