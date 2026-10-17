@@ -317,11 +317,12 @@
   /* ---- screenshots ---- */
   .strip { display: flex; gap: 6px; }
   .strip img, .strip .smore {
-    width: 72px; height: 48px; border-radius: 5px; object-fit: cover; object-position: top; cursor: pointer; flex: none;
+    height: 72px; border-radius: 6px; object-fit: cover; object-position: top; cursor: pointer;
+    flex: 1 1 0; min-width: 0; max-width: 128px;  /* up to 4 share the card's width */
     background: var(--idle-bg); box-shadow: 0 0 0 1px var(--border);
   }
   .strip img:hover, .strip .smore:hover { box-shadow: 0 0 0 2px var(--brand); }
-  .strip .smore { display: grid; place-items: center; border: 0; color: var(--muted); font-size: 12px; font-weight: 600; width: 48px; }
+  .strip .smore { display: grid; place-items: center; border: 0; color: var(--muted); font-size: 13px; font-weight: 600; flex: 0 0 52px; }
   .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
   .shot { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; cursor: pointer;
           display: flex; flex-direction: column; }
@@ -596,6 +597,7 @@
 
 <script>
 const BASE = "{{BASE}}";
+const BUILD = "{{BUILD}}";
 const TOUCH = matchMedia("(pointer: coarse)").matches;  // phones: don't pop the keyboard up uninvited
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -996,6 +998,8 @@ async function refresh() {
     if (r.status === 401) { location.reload(); return; }
     data = await r.json();
     lastOk = Date.now();
+    // the server was redeployed: load the new page, but not while you're in a dialog or typing a message
+    if (data.build && data.build !== BUILD && !document.querySelector("dialog[open]") && !msg.value) { location.reload(); return; }
     if (data.shots_rev && data.shots_rev !== shotsRev) { const first = shotsRev === null; shotsRev = data.shots_rev; loadShots(first); }
     render();
   } catch (e) { /* keep last data, the indicator goes stale */ }

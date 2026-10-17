@@ -9,6 +9,7 @@ write needs the X-AIDash header so another site can't trigger it (CSRF).
 Screenshots that sessions share or the user uploads: see shots.py.
 """
 
+import hashlib
 import html
 import json
 import os
@@ -618,6 +619,10 @@ def run_cron_job(body):
 LOGIN_HTML = (WEB / "login.html").read_text()
 DASH_HTML = (WEB / "index.html").read_text()
 SETUP_HTML = (WEB / "setup.html").read_text()
+# Changes with every deploy. Open pages compare it with the one they were served and reload, so a tab
+# left open across a deploy doesn't keep running the old script.
+BUILD = hashlib.sha1(b"".join(p.read_bytes() for p in sorted(Path(__file__).parent.glob("*.py")))
+                     + DASH_HTML.encode()).hexdigest()[:12]
 
 
 CSP = ("default-src 'none'; script-src {script}; style-src 'unsafe-inline'; img-src 'self' data:; "
@@ -745,7 +750,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.login_page()
         if r == "/":
             nonce = secrets.token_urlsafe(16)
-            page = DASH_HTML.replace("{{BASE}}", BASE).replace("{{COLOR}}", get_color()).replace("<script>", f'<script nonce="{nonce}">', 1)
+            page = DASH_HTML.replace("{{BASE}}", BASE).replace("{{BUILD}}", BUILD).replace("{{COLOR}}", get_color()).replace("<script>", f'<script nonce="{nonce}">', 1)
             return self.send(200, page, nonce=nonce)
         if r == "/api/sessions":
             try:
@@ -753,6 +758,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # tmux server gone, socket missing, ...
                 data = {"ok": False, "now": int(time.time()), "error": str(e), "sessions": [], "limits": read_limits()}
             data["shots_rev"] = shots.rev()
+            data["build"] = BUILD
             return self.send(200, json.dumps(data), "application/json")
         if r.startswith("/api/cron"):
             return self.cron_get(r)
