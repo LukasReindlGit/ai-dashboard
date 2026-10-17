@@ -115,7 +115,7 @@ For example, `deskdonkey_ai_dev` is grouped under `deskdonkey`.
 
 The tmux socket gives full control of the host's tmux, and the dashboard uses
 it: it types into sessions and starts new ones. In effect, the password is a
-shell as `RUN_AS` on the host (root on this server). All routes except `/ai/health` need the password.
+shell as `RUN_AS` on the host (often root). All routes except `/ai/health` need the password.
 Every write (`POST /ai/api/…`) also needs the `X-AIDash: 1` header, which a
 cross-site form can't send. Keys are limited to a whitelist. Failed logins are limited to
 10 per IP per 15 minutes. The container is read-only and runs with all
