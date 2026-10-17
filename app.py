@@ -32,6 +32,7 @@ COOKIE = "aidash"
 WEB = Path(__file__).parent / "web"
 STATE_FILE = Path(os.environ.get("STATE_DIR", "/data")) / "state.json"
 LIMITS_FILE = Path(os.environ.get("LIMITS_FILE", "/root/.claude/usage/limits.json"))
+HEX_COLOR = re.compile(r"^#[0-9a-f]{6}$")
 SESSION_NAME = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 KEYS = {"Enter", "Escape", "C-c", "Up", "Down", "Left", "Right", "Tab", "BTab", "BSpace", "Space",
         "y", "n", *"0123456789"}
@@ -508,6 +509,22 @@ def set_hidden(name, created, hide):
         save_state(st)
 
 
+def get_color():
+    with STATE_LOCK:
+        return load_state().get("color", "")
+
+
+def set_color(color):
+    """Server color for the header dot and favicon, so tabs from different servers tell apart."""
+    color = color.strip().lower()
+    if color and not HEX_COLOR.match(color):
+        raise ValueError("color must be #rrggbb")
+    with STATE_LOCK:
+        st = load_state()
+        st["color"] = color
+        save_state(st)
+
+
 def session_names():
     return tmux("list-sessions", "-F", "#{session_name}").split()
 
@@ -705,7 +722,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.login_page()
         if r == "/":
             nonce = secrets.token_urlsafe(16)
-            page = DASH_HTML.replace("{{BASE}}", BASE).replace("<script>", f'<script nonce="{nonce}">', 1)
+            page = DASH_HTML.replace("{{BASE}}", BASE).replace("{{COLOR}}", get_color()).replace("<script>", f'<script nonce="{nonce}">', 1)
             return self.send(200, page, nonce=nonce)
         if r == "/api/sessions":
             try:
@@ -831,6 +848,9 @@ class Handler(BaseHTTPRequestHandler):
                 new_session(str(body.get("project") or ""), name,
                             bool(body.get("resume")), str(body.get("prompt") or "").strip()[:4000])
                 return reply(200, {"ok": True, "name": name})
+            if r == "/api/color":
+                set_color(str(body.get("color") or ""))
+                return reply(200, {"ok": True})
             if r.startswith("/api/cron/"):
                 if not cron.available():
                     return reply(400, {"error": "the crontab is not mounted or not writable"})

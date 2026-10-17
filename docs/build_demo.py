@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 page = (ROOT.parent / "web" / "index.html").read_text()
 mock = (ROOT / "mock.js").read_text()
-page = page.replace("{{BASE}}", "").replace("<script>", "<script>\n" + mock + "\n", 1)
+page = page.replace("{{BASE}}", "").replace("{{COLOR}}", "#30a46c").replace("<script>", "<script>\n" + mock + "\n", 1)
 (ROOT / "demo.html").write_text(page)
 print("wrote", ROOT / "demo.html")
 

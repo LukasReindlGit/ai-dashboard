@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-color="#30a46c">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>AI Ops</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230176D3'/%3E%3Cpath d='M9 21a4 4 0 0 1 .6-7.95A5.5 5.5 0 0 1 20 11.5a4.5 4.5 0 0 1 3 9.5z' fill='white'/%3E%3C/svg%3E">
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230176D3'/%3E%3Cpath d='M9 21a4 4 0 0 1 .6-7.95A5.5 5.5 0 0 1 20 11.5a4.5 4.5 0 0 1 3 9.5z' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
     --brand: #0176D3; --brand-dark: #014486; --navy: #032D60; --cloud: #1B96FF; --sky: #EAF5FE;
@@ -50,6 +50,17 @@
   .bar svg { flex: none; }
   .title h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
   .title div { font-size: 12px; opacity: .8; }
+  .title h1 { display: flex; align-items: center; gap: 10px; }
+  .sdot {
+    width: 14px; height: 14px; border-radius: 50%; padding: 0; cursor: pointer; flex: none;
+    background: var(--sdot, transparent); border: 2px solid rgba(255,255,255,.85);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.18);
+  }
+  .sdot.unset { border-style: dashed; border-color: rgba(255,255,255,.6); box-shadow: none; }
+  .sdot:hover, .sdot:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(255,255,255,.35); }
+  .menu button .sw { width: 12px; height: 12px; border-radius: 50%; flex: none; align-self: center;
+                     background: var(--sw); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .menu button .sw.none { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
   .spacer { flex: 1; }
   .hbtn {
     background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.25);
@@ -371,7 +382,7 @@
       <path d="M16 37a7 7 0 0 1 1-13.9A9.6 9.6 0 0 1 35 20a7.9 7.9 0 0 1 5.2 17z" fill="#fff"/>
       <circle cx="23" cy="31" r="2.2" fill="#0176D3"/><circle cx="29" cy="31" r="2.2" fill="#0176D3"/><circle cx="35" cy="31" r="2.2" fill="#0176D3"/>
     </svg>
-    <div class="title"><h1>AI Ops</h1><div>tmux sessions &amp; batch runs</div></div>
+    <div class="title"><h1>AI Ops<button class="sdot" id="sdot" data-menu title="Server color" aria-label="Server color"></button></h1><div>tmux sessions &amp; batch runs</div></div>
     <div class="spacer"></div>
     <div class="limits" id="limits"></div>
     <span class="live" id="live"><i></i><span id="updated">connecting…</span></span>
@@ -749,8 +760,11 @@ function openMenu(anchor, items) {
     b.className = (it.danger ? "danger " : "") + (it.skill ? "skill" : "");
     b.innerHTML = it.skill
       ? `<span>${esc(it.label)}</span>${it.desc ? `<em>${esc(it.desc)}</em>` : ""}`
+      : "swatch" in it
+      ? `<i class="sw${it.swatch ? "" : " none"}"></i><span>${esc(it.label)}</span>${it.hint ? `<small>${esc(it.hint)}</small>` : ""}`
       : `<span>${esc(it.label)}</span>${it.hint ? `<small>${esc(it.hint)}</small>` : ""}`;
     if (it.desc) b.title = it.desc;
+    if (it.swatch) b.querySelector(".sw").style.setProperty("--sw", it.swatch);
     b.onclick = () => { closeMenu(); it.run(); };
     m.appendChild(b);
   });
@@ -814,6 +828,39 @@ $("#theme").onclick = () => {
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem("aidash-theme", next); } catch {}
+};
+
+// ---- server color: a dot in the header (and the favicon) so tabs from different servers tell apart.
+// Stored server-side in data/state.json, so every browser sees the same color for this server.
+const COLORS = [
+  ["Red", "#e5484d"], ["Orange", "#f76b15"], ["Yellow", "#ffc53d"], ["Green", "#30a46c"],
+  ["Teal", "#12a594"], ["Blue", "#1b96ff"], ["Purple", "#8e4ec6"], ["Pink", "#d6409f"],
+];
+const FAVICON = $("#favicon").href;
+function applyColor(c) {
+  document.documentElement.dataset.color = c;
+  const d = $("#sdot");
+  d.classList.toggle("unset", !c);
+  d.style.setProperty("--sdot", c || "transparent");
+  d.title = c ? "Server color (click to change)" : "Pick a color for this server";
+  $("#favicon").href = c
+    ? FAVICON.replace("%3C/svg%3E", `%3Ccircle cx='26' cy='6' r='5.5' fill='${encodeURIComponent(c)}' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E`)
+    : FAVICON;
+}
+applyColor(document.documentElement.dataset.color || "");
+$("#sdot").onclick = (e) => {
+  const cur = document.documentElement.dataset.color;
+  const pick = (c) => async () => {
+    const prev = document.documentElement.dataset.color;
+    applyColor(c);
+    try { await post("/api/color", { color: c }); } catch (err) { applyColor(prev); toast(err.message, true); }
+  };
+  openMenu(e.currentTarget, [
+    { group: "Server color" },
+    ...COLORS.map(([name, c]) => ({ label: name, swatch: c, hint: c === cur ? "✓" : "", run: pick(c) })),
+    { sep: true },
+    { label: "No color", swatch: "", hint: cur ? "" : "✓", run: pick("") },
+  ]);
 };
 
 function ago(sec) {
