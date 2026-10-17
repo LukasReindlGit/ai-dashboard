@@ -8,7 +8,7 @@
 <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230176D3'/%3E%3Cpath d='M9 21a4 4 0 0 1 .6-7.95A5.5 5.5 0 0 1 20 11.5a4.5 4.5 0 0 1 3 9.5z' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
-    --brand: #0176D3; --brand-dark: #014486; --navy: #032D60; --cloud: #1B96FF; --sky: #EAF5FE;
+    --brand: #0176D3; --brand-dark: #014486; --navy: #032D60; --brand-light: #1B96FF; --cloud: #1B96FF; --sky: #EAF5FE;
     --bg: #F3F3F3; --surface: #FFFFFF; --border: #E5E5E5; --text: #181818; --muted: #706E6B;
     --ok: #2E844A; --ok-bg: #CDEFC4; --warn: #A96404; --warn-bg: #FEF1C7; --warn-dot: #DD7A01;
     --err: #BA0517; --err-bg: #FDDDE3; --info: #0176D3; --info-bg: #D8EDFF;
@@ -56,6 +56,7 @@
     background: var(--sdot, transparent); border: 2px solid rgba(255,255,255,.85);
     box-shadow: 0 0 0 3px rgba(255,255,255,.18);
   }
+  .logo-dots { fill: var(--brand); }
   .sdot.unset { border-style: dashed; border-color: rgba(255,255,255,.6); box-shadow: none; }
   .sdot:hover, .sdot:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(255,255,255,.35); }
   .menu button .sw { width: 12px; height: 12px; border-radius: 50%; flex: none; align-self: center;
@@ -112,7 +113,7 @@
     flex: 1; min-width: 160px; max-width: 280px; margin-left: auto; padding: 8px 12px; border-radius: 8px;
     border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px;
   }
-  .tools input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px #1B96FF33; }
+  .tools input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-light) 20%, transparent); }
 
   /* ---- groups & cards ---- */
   .group h2 {
@@ -141,8 +142,8 @@
   .card.done { border-top-color: var(--ok); }
   .chead { padding: 12px 14px 8px; display: flex; gap: 10px; align-items: flex-start; }
   .avatar { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; flex: none; color: #fff; }
-  .avatar.batch { background: linear-gradient(135deg, #014486, #0176D3); }
-  .avatar.claude { background: linear-gradient(135deg, #0176D3, #1B96FF); }
+  .avatar.batch { background: linear-gradient(135deg, var(--brand-dark), var(--brand)); }
+  .avatar.claude { background: linear-gradient(135deg, var(--brand), var(--brand-light)); }
   .avatar.shell { background: #706E6B; }
   .cname { font-weight: 700; font-size: 15px; word-break: break-all; }
   .csub { color: var(--muted); font-size: 12px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -314,7 +315,7 @@
   .card.cron { border-top-color: var(--brand); }
   .card.cron.off { border-top-color: var(--idle); }
   .card.cron.off .chead, .card.cron.off .cbody { opacity: .6; }
-  .avatar.cron { background: linear-gradient(135deg, #032D60, #0176D3); }
+  .avatar.cron { background: linear-gradient(135deg, var(--navy), var(--brand)); }
   .card.cron.off .avatar.cron { background: #706E6B; }
   .cron .cname { cursor: default; word-break: normal; }
   .cron .cname:hover { text-decoration: none; }
@@ -380,7 +381,7 @@
     <svg width="40" height="40" viewBox="0 0 56 56" aria-hidden="true">
       <rect width="56" height="56" rx="14" fill="#fff" fill-opacity=".16"/>
       <path d="M16 37a7 7 0 0 1 1-13.9A9.6 9.6 0 0 1 35 20a7.9 7.9 0 0 1 5.2 17z" fill="#fff"/>
-      <circle cx="23" cy="31" r="2.2" fill="#0176D3"/><circle cx="29" cy="31" r="2.2" fill="#0176D3"/><circle cx="35" cy="31" r="2.2" fill="#0176D3"/>
+      <g class="logo-dots"><circle cx="23" cy="31" r="2.2"/><circle cx="29" cy="31" r="2.2"/><circle cx="35" cy="31" r="2.2"/></g>
     </svg>
     <div class="title"><h1>AI Ops<button class="sdot" id="sdot" data-menu title="Server color" aria-label="Server color"></button></h1><div>tmux sessions &amp; batch runs</div></div>
     <div class="spacer"></div>
@@ -830,15 +831,36 @@ $("#theme").onclick = () => {
   try { localStorage.setItem("aidash-theme", next); } catch {}
 };
 
-// ---- server color: a dot in the header (and the favicon) so tabs from different servers tell apart.
+// ---- server color: tints the page's accent colors (header, buttons, avatars), the header dot and the favicon,
+// so tabs from different servers tell apart. Status colors (working, attention, done) stay as they are.
 // Stored server-side in data/state.json, so every browser sees the same color for this server.
 const COLORS = [
   ["Red", "#e5484d"], ["Orange", "#f76b15"], ["Yellow", "#ffc53d"], ["Green", "#30a46c"],
   ["Teal", "#12a594"], ["Blue", "#1b96ff"], ["Purple", "#8e4ec6"], ["Pink", "#d6409f"],
 ];
 const FAVICON = $("#favicon").href;
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const hex = (a) => "#" + a.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const mix = (a, b, t) => hex(rgb(a).map((v, i) => v + (rgb(b)[i] - v) * t));  // t = share of b
+function lum(h) {
+  const [r, g, b] = rgb(h).map((v) => (v /= 255) <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+  return .2126 * r + .7152 * g + .0722 * b;
+}
+function themeCss(c) {
+  // --brand carries white text (buttons, tabs), so darken it until that reads (contrast 4.5).
+  let brand = c, t = 0;
+  while (1.05 / (lum(brand) + .05) < 4.5 && t < .9) brand = mix(c, "#000000", t += .05);
+  const dark = `--sky: ${mix(c, "#0b1a2e", .72)};`;
+  return `:root { --brand: ${brand}; --brand-dark: ${mix(brand, "#000000", .35)}; --navy: ${mix(brand, "#000000", .68)};
+    --brand-light: ${c}; --sky: ${mix(c, "#ffffff", .9)}; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${dark} } }
+  :root[data-theme="dark"] { ${dark} }`;
+}
 function applyColor(c) {
   document.documentElement.dataset.color = c;
+  let st = $("#server-color");
+  if (!st) { st = document.createElement("style"); st.id = "server-color"; document.head.appendChild(st); }
+  st.textContent = c ? themeCss(c) : "";
   const d = $("#sdot");
   d.classList.toggle("unset", !c);
   d.style.setProperty("--sdot", c || "transparent");

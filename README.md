@@ -20,7 +20,7 @@ You can also act on sessions from the page:
 - The **GitHub icon** links to the repo's issues, taken from the `origin` remote. SSH host aliases like `github-the-drift` are mapped to github.com.
 - **Hide** a session. It keeps running but drops off the board. Hidden sessions are stored in `data/state.json`, keyed by name plus creation time, so a new session that reuses the name shows up again.
 - **End** a session (`tmux kill-session`, with confirmation).
-- **Server color**: click the dot next to the title to pick a color for this server. It tints the dot and the browser tab icon, so tabs from several servers are easy to tell apart. It is stored in `data/state.json`, so every browser sees the same color.
+- **Server color**: click the dot next to the title to pick a color for this server. It becomes the page's accent color (header, buttons, tabs, avatars) and tints the browser tab icon, so tabs from several servers are easy to tell apart. It is stored in `data/state.json`, so every browser sees the same color.
 - **+ New session** starts a Claude session in a project under `PROJECTS_DIR`: `tmux new-session` + `claude [--continue] [prompt]`. The project list comes from a read-only mount of `PROJECTS_DIR`. `claude` must be on the host user's PATH.
 
 ### Cron jobs
