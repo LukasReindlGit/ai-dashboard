@@ -1,152 +1,228 @@
-# AI dashboard
+# AI Dashboard
 
-Password-protected control page for a server's tmux sessions: Claude sessions
-(working / waiting for you / needs input) and `scripts/batch.py` runs (progress,
-current issue, merged/limit events). It runs on any Linux host with Docker.
+A self-hosted web dashboard for the tmux sessions on a server: Claude Code sessions,
+unattended `scripts/batch.py` runs, and the crontab that starts them. You can see what each
+session is doing and answer it from any browser, including your phone.
 
-![Dashboard on desktop](docs/screenshot-desktop.png)
+![Dashboard overview](docs/screenshot-desktop.png)
 
-<img src="docs/screenshot-mobile.png" alt="Dashboard on a phone" width="300">
+## Features
 
-The screenshots show made-up demo data. `docs/demo.html` is the same page as a static file
-with that data built in (`docs/mock.js`). `python3 docs/build_demo.py` rebuilds it from
-`web/index.html` and retakes the screenshots (needs Playwright with Chromium).
+- **Live session board.** Every tmux session on the host, grouped by project, refreshed every 5 seconds. Claude sessions show whether they are *working*, *waiting for you* or *need input* (a permission prompt), along with the last prompt and the current spinner. Batch runs show their progress, the current issue and a timeline of merged and failed issues, and say when they are sleeping because of a usage limit.
+- **Terminal in the browser.** Open any session to see its last 400 lines live. You can type into it, press keys (Esc, ↑/↓, 1/2/3, ⇧Tab, Ctrl-C), dictate with the built-in speech recognition (EN/DE), and run quick commands and the project's skills from a menu. Every command asks for confirmation first.
+- **Screenshots both ways.** Claude sessions can share images with you, and they show up on the session's card. You can upload images, or take photos on a phone, and their paths go into your next message.
+- **Cron jobs.** View, create, edit, pause and run the host user's crontab jobs, with schedules in plain English, next and last runs, and their logs.
+- **Usage limits.** Shows the 5-hour and weekly Claude usage windows in the header.
+- **Session management.** Start a new Claude session in any project, hide a session from the board, or end it. Each card links to the repository's GitHub issues.
+- **Per-server accent color.** Pick a color for each server, so browser tabs from several servers are easy to tell apart.
+- **Secure by default.** Logging in takes a password and a TOTP code. Sessions are stored on the server, the page has a strict CSP and CSRF protection, and the container is read-only with all capabilities dropped.
 
-You can also act on sessions from the page:
-- **Open** a session's terminal. It shows the last 400 lines live, and you can type into it (Enter sends) or press keys (Esc, ↑/↓, 1/2/3, ⇧Tab, Ctrl-C).
-- **Dictation** (mic button next to Send) uses the browser's built-in speech recognition (Web Speech API). It is free with no server part and works in Chrome, Edge and Safari (iOS, Android) but not Firefox. The EN/DE toggle sets the language. Dictated text lands in the box and is only sent when you press Send.
-- **Commands ▾** / **⋯** offer quick commands (`/clear`, `/compact`, `/model …`, `/usage`, …). Each one asks for confirmation first. The list is `COMMANDS` at the top of the script in `web/index.html`.
-- Claude sessions also get **skills** in that menu: the project's `.claude/skills` and `.claude/commands` (from the session's folder up to `PROJECTS_DIR`) plus your personal `~/.claude/skills`. You can add arguments in the confirmation box.
-- The **GitHub icon** links to the repo's issues, taken from the `origin` remote. SSH host aliases like `github-the-drift` are mapped to github.com.
-- **Hide** a session. It keeps running but drops off the board. Hidden sessions are stored in `data/state.json`, keyed by name plus creation time, so a new session that reuses the name shows up again.
-- **End** a session (`tmux kill-session`, with confirmation).
-- **Server color**: click the dot next to the title to pick a color for this server. It becomes the page's accent color (header, buttons, tabs, avatars) and tints the browser tab icon, so tabs from several servers are easy to tell apart. It is stored in `data/state.json`, so every browser sees the same color.
-- **+ New session** starts a Claude session in a project under `PROJECTS_DIR`: `tmux new-session` + `claude [--continue] [prompt]`. The project list comes from a read-only mount of `PROJECTS_DIR`. `claude` must be on the host user's PATH.
+<table>
+  <tr>
+    <td width="68%"><img src="docs/screenshot-terminal.png" alt="Terminal view of a Claude session"></td>
+    <td rowspan="2"><img src="docs/screenshot-mobile.png" alt="Dashboard on a phone"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshot-cron.png" alt="Cron jobs view"></td>
+  </tr>
+</table>
+
+## Quick start
+
+Requirements: Linux and Docker with Compose. tmux and Claude Code must run on the host as the same user.
+
+```sh
+cp .env.example .env          # set DOMAIN, RUN_AS, TMUX_SOCKET_DIR, PROJECTS_DIR, CLAUDE_DIR
+mkdir -p data && chown "$(grep ^RUN_AS .env | cut -d= -f2)" data
+docker compose up -d --build
+```
+
+Then open `https://<DOMAIN>/ai/` **straight away**. On the first visit, a setup screen
+asks you to choose a password (at least 12 characters) and to scan a QR code with an
+authenticator app. There is no setup token: whoever opens the page first sets the login.
+
+## Configuration
+
+All host-specific settings are in `.env`. `.env.example` documents each one.
+
+| Variable | Purpose |
+|---|---|
+| `DOMAIN`, `BASE_PATH` | Public address. The dashboard is served at `https://$DOMAIN$BASE_PATH/` (default `/ai`). |
+| `RUN_AS` | `uid:gid` of the user who runs tmux and Claude. The container runs as this user because the tmux socket is private to it. |
+| `TMUX_SOCKET_DIR` | That user's tmux socket dir, `/tmp/tmux-<uid>`. Set `TMUX_SOCKET_NAME` only if you use `tmux -L`. |
+| `BASE_IMAGE` | A base image whose tmux version matches the host's `tmux -V` (`ubuntu:22.04` has 3.2a, `debian:12` has 3.3a, `ubuntu:24.04` has 3.4). |
+| `PROJECTS_DIR` | Folder with one subfolder per project, mounted read-only. It is used for grouping, the new-session list, project skills and the issue links. |
+| `CLAUDE_DIR` | That user's `~/.claude`. It provides personal skills, the usage-limit file and the screenshot skill. |
+| `SHOTS_DIR`, `SHOTS_KEEP_DAYS`, `SHOTS_MAX_MB` | Where screenshots are stored (default `CLAUDE_DIR/screenshots`), how long they are kept (14 days) and the size cap (500 MB). |
+| `CRON_USER`, `CRON_SPOOL`, `LOG_GROUP` | The crontab the cron view edits, and the group that may read `/var/log/syslog` (`adm`, gid 4). |
+| `PROXY_NETWORK`, `TRUSTED_PROXY` | The Docker network that is shared with the reverse proxy, and the only container whose `X-Real-IP` header is trusted. |
+| `DASHBOARD_PASSWORD`, `TOTP_SECRET` | Optional. If set, they replace the setup screen. |
+
+`./data` holds the dashboard's state: `state.json` (hidden sessions, server color),
+`auth.json`, `sessions.json` and `cron-backups/`. It must be writable by `RUN_AS`, and so
+must `SHOTS_DIR` and `CLAUDE_DIR/skills/dashboard-screenshots` when `RUN_AS` is not root.
+Docker creates missing mount folders as root.
+
+### Reverse proxy
+
+By default, routing goes through [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy)
+path routing (`VIRTUAL_HOST`, `VIRTUAL_PATH`) on a network that holds only the proxy and
+this app, so no other container can reach port 8000 directly:
+
+```sh
+docker network create aidash
+docker network connect aidash nginx-proxy     # and add the network to the proxy's compose file
+# optional: redirect /ai to /ai/
+docker exec nginx-proxy sh -c 'echo "location = /ai { return 301 /ai/; }" >> /etc/nginx/vhost.d/example.com' \
+  && docker exec nginx-proxy nginx -s reload
+```
+
+If you use another proxy, publish the port on localhost in a `docker-compose.override.yml`
+and put your own TLS proxy in front of it. Never expose plain HTTP, because the login gives a shell on the host.
+
+```yaml
+services:
+  app:
+    ports: ["127.0.0.1:8000:8000"]
+```
+
+The external `PROXY_NETWORK` must still exist (`docker network create aidash`).
+
+### Usage limits
+
+The header bars read `CLAUDE_DIR/usage/limits.json`. A Claude Code status line script
+writes this file by saving the status line's `rate_limits` payload. Without the file, the
+bars are hidden. Claude Code sometimes leaves a window out of `rate_limits`. The script
+should then keep the last reading of that window until its `resets_at`, with a `seen`
+timestamp, and the bar is dimmed. A window with no reading shows as "–".
+
+## Usage
+
+### Sessions
+
+| Kind | State | How it is detected |
+|---|---|---|
+| Claude | Working | `esc to interrupt` or the spinner line in the pane |
+| Claude | Needs input | A permission prompt (`Do you want to…`, `❯ 1.`) |
+| Claude | Waiting for you | Anything else |
+| Batch | Running | A `batch.py` process runs under the pane |
+| Batch | Sleeping | The last log line says `sleeping N min` |
+| Batch | Usage limit | `#N -> limit`, and the process has exited |
+| Batch | Finished | `Done:` or `Batch finished` |
+
+A session counts as a batch when its name starts with `batch` or when a `batch.py` process
+runs under it. Progress is parsed from `scripts/batch.py`'s log format
+(`== Batch: N issues`, `[HH:MM:SS] #N title [how]`, `#N -> merged in M min: …`). Without
+that format, batch sessions still show up, just without progress.
+
+Sessions are grouped by project family: the pane's folder under `PROJECTS_DIR`, with
+`-dev`, `_dev` and `_demo` suffixes and anything after `_` removed. For example,
+`deskdonkey_ai_dev` is grouped under `deskdonkey`.
+
+Actions on a card:
+
+- **Open** shows the terminal. Enter sends, Shift+Enter adds a new line, and multi-line messages are sent as a single paste.
+- **Commands ▾ / ⋯** run quick commands (`/clear`, `/compact`, `/model …`, `/usage`, …) and, for Claude sessions, skills. The skills come from the project's `.claude/skills` and `.claude/commands` (from the session's folder up to `PROJECTS_DIR`) and from your personal `~/.claude/skills`. You can add arguments in the confirmation box. The quick commands are `COMMANDS` in `web/index.html`.
+- **GitHub icon** opens the repository's issues, based on the `origin` remote. SSH host aliases such as `github-myorg` are mapped to github.com.
+- **Hide** removes a session from the board while it keeps running. A hidden session is identified by its name and creation time, so a new session with the same name shows up again.
+- **End** runs `tmux kill-session`, after a confirmation.
+- **+ New session** runs `claude [--continue] [prompt]` in a new tmux session in the chosen project. `claude` must be on the host user's `PATH`.
+
+Dictation uses the browser's Web Speech API. It needs no server component and works in
+Chrome, Edge and Safari (desktop, iOS and Android), but not in Firefox. Dictated text is
+only sent when you press Send.
+
+Pages that are left open reload themselves after a deploy. They wait until no dialog is
+open and you aren't typing a message.
 
 ### Screenshots
 
-Screenshots go both ways, from Claude sessions to you and from you to them:
+On every start, the dashboard installs a `dashboard-screenshots` skill into
+`CLAUDE_DIR/skills/`, with this host's folder and URL filled in. Every Claude session on the
+host can use it, and no per-project setup is needed:
 
-- **From a session**: when Claude takes a screenshot you should see (a UI change, a Playwright capture, a chart), it shares it. The image shows as a thumbnail on that session's card, as a count button in its terminal header, and in the **Screenshots** tab (`/ai/#shots`), grouped by project. When one arrives while that session's terminal is open, it pops up as a small picture-in-picture above the message box, and one click opens it (older ones never pop up). For any other session, a toast tells you. Click one for the viewer (←/→ or swipe, open full size, copy its path, delete).
-- **From you**: the image button next to the mic in the terminal view (or paste, or drag and drop) uploads images for that session and puts their paths into your message, so Claude reads them when you press Send. On a phone, that button opens the camera or the photo library. The tab's **+ Upload** stores an image without sending it anywhere; copy its path from the viewer.
-- Big images are scaled down in the browser first (to about 900 KB, WebP or JPEG; HEIC becomes one of those too), so nginx's default 1 MB request limit doesn't get in the way. Claude scales images down anyway.
+```sh
+~/.claude/skills/dashboard-screenshots/share.sh <image> ["caption"]   # share a png, jpg, webp or gif
+~/.claude/skills/dashboard-screenshots/share.sh --inbox [n]           # list your newest uploads
+```
 
-How the sessions learn it: on every start, the dashboard writes a skill, `dashboard-screenshots`, into
-`CLAUDE_DIR/skills/`. Its `SKILL.md` and its helper script have this host's folder and URL filled in, and
-every Claude session on the host sees the skill. Nothing has to be added per project, and deploying the
-dashboard on another server installs it there. If you change `skill/` in this repo, restart the container.
-A `SKILL.md` in that folder without the "Generated by ai-dashboard" marker is left alone. Sessions share with:
+- **From a session:** the image appears as a thumbnail on the session's card, in its terminal header and in the **Screenshots** tab (`#shots`). If you have that terminal open, a small picture-in-picture pops up above the message box. For other sessions, a toast appears. The viewer supports ←/→ and swiping, and you can open an image at full size, copy its path or delete it.
+- **From you:** the image button in the terminal view uploads images and adds their paths to your message. You can also paste or drag and drop an image. On a phone, the button opens the camera or the photo library. **+ Upload** in the Screenshots tab stores an image without sending it.
+- Large images are scaled down in the browser to about 900 KB before upload (HEIC is converted), so the upload stays under nginx's default 1 MB request limit.
 
-    ~/.claude/skills/dashboard-screenshots/share.sh <image> ["caption"]   # png, jpg, webp, gif
-    ~/.claude/skills/dashboard-screenshots/share.sh --inbox [n]           # your newest uploads
-
-The script is plain POSIX `sh`. It reads the tmux session from `$TMUX_PANE`, so shots land on the right card. A shot belongs to that session (name plus creation time), so a new session that reuses the name starts without any.
-
-Files: `SHOTS_DIR` (default `CLAUDE_DIR/screenshots`) holds `shared/` (from sessions) and `uploads/` (from you).
-Next to each image is `<id>.json` with the session, folder, caption and time. The folder is mounted at the
-same path, so the paths the page shows also work on the host. Images are deleted after `SHOTS_KEEP_DAYS`
-(default 14), and the oldest go first once the folder is over `SHOTS_MAX_MB` (default 500). Only real
-PNG/JPEG/WebP/GIF files are served (checked by their bytes, never SVG), and only behind the login.
+Images are stored in `SHOTS_DIR/shared` and `SHOTS_DIR/uploads`, each with an `<id>.json`
+sidecar file. They are deleted after `SHOTS_KEEP_DAYS`, and the oldest are removed first when the
+folder grows beyond `SHOTS_MAX_MB`. Only genuine PNG, JPEG, WebP and GIF files are served
+(checked by their content, never SVG), and only to logged-in users. The skill is rewritten on
+each start, so restart the container after you change `skill/`. A `SKILL.md` without the
+"Generated by ai-dashboard" marker is left untouched.
 
 ### Cron jobs
 
-The **Cron jobs** tab (toggle next to the filters, or `/ai/#cron`) manages the host user's crontab
-(`CRON_USER`):
+The **Cron jobs** tab (`#cron`) edits `CRON_USER`'s crontab in the host spool. This
+requires `RUN_AS=0:0`, because the spool directory is closed to other users.
 
-- Each job is a card grouped by project, which is taken from the first `PROJECTS_DIR/<project>` path in the command. A card shows the schedule in words, the **next run**, the **last run**, and the log file with when it was last written.
-- **Create / Edit** use a form with a description, a schedule (with presets and a live preview of the next runs), the command and an optional log file. The log file field becomes `>> file 2>&1` at the end of the command.
-- The **switch** pauses or enables a job. **⋯** offers duplicate and delete. **Edit raw** opens the whole file for anything the form doesn't cover, such as `VAR=value` lines.
-- **Run now** starts the job in a tmux session `cron-<project>` with cron's environment (`env -i`, `/bin/sh`, `PATH=/usr/bin:/bin`) and opens its terminal. If the job writes a log, the new lines show live.
-- **Log** shows the last 200 lines of the job's log. Only files under `/var/log` can be shown.
+- Jobs are grouped by the first `PROJECTS_DIR/<project>` (or `~/projects/<project>`) path in their command. Each card shows the schedule in words, the next run, the last run (from `CRON[…]: (user) CMD (…)` lines in `/var/log/syslog`) and the log file.
+- The form has schedule presets, a live preview of the next runs, and an optional log file that is appended as `>> file 2>&1`. **Edit raw** opens the whole file, for example to edit `VAR=value` lines.
+- **Run now** starts the job in a tmux session `cron-<project>` with cron's minimal environment, and follows its log. **Log** shows the last 200 lines. Only files under `/var/log` can be shown.
 
-How the file is kept:
-
-- A job is its line plus the comment lines right above it, which are its description. A paused job is the line prefixed with `#[off] `. Ordinary comments that look like a job, such as the example in the stock header, stay comments.
-- Every other line is kept exactly as it is. A file you edit with `crontab -e` reads back the same.
-- Saves are written in place, which keeps the owner, group and mode that `crontab` set. The spool dir's mtime is then bumped, and cron re-reads the file within a minute (you'll see `RELOAD` in syslog). Every save first copies the old file to `data/cron-backups/` (the last 50 are kept).
-- Every write carries the version it was based on. If the file changed in the meantime (for example through `crontab -e`), the save is refused with "reload and try again".
-- "Last run" comes from the `CRON[…]: (user) CMD (…)` lines in `/var/log/syslog` and `syslog.1`. The container needs read access to syslog through `LOG_GROUP` (adm, gid 4).
-
-Mounts: `CRON_SPOOL` (default `/var/spool/cron/crontabs`) at `/cron` and `/var/log` read-only at `/hostlog`.
-The spool dir is closed to other users, so this only works with `RUN_AS=0:0`. Otherwise the tab says the crontab isn't writable.
-
-- `app.py`: stdlib HTTP server. It reads tmux through the host socket and the process tree through `/proc`.
-- `shots.py`: screenshots (storage, retention, serving, installing the skill). `skill/` holds the skill's templates.
-- `cron.py`: crontab parsing and writing, schedule maths (next runs, plain-English description), last runs from syslog.
-- `web/`: the login page and the dashboard (auto-refreshes every 5 s, "Open" shows the last 400 lines of a pane).
-- `auth.py`: login: first-run setup, password + TOTP, server-side sessions, failed-login limits.
-- `.env` (not committed, template in `.env.example`): all host-specific settings, optionally `DASHBOARD_PASSWORD` / `TOTP_SECRET` (otherwise the setup screen sets them).
-
-Pages left open across a deploy reload on their own (once the server reports a new build, and not while a dialog is open or you're typing a message).
+The file is kept close to how `crontab -e` leaves it. A job is its line plus the comment
+lines directly above it, which serve as the job's description. A paused job is prefixed
+with `#[off] `, and all other lines are kept unchanged. Each save writes the file in
+place, so the owner and mode stay as they are. It also bumps the spool directory's mtime so that cron reloads the
+file, and first saves a backup to `data/cron-backups/` (the last 50 are kept). If the file
+changed since you loaded it, the save is refused.
 
 ## Security
 
-Logging in means driving root's tmux and crontab, so a login is a root shell on the host.
+A login gives control of `RUN_AS`'s tmux server and crontab, which is often root.
+**Treat the login as a root shell on the host.**
 
-- **First run**: with no password or no TOTP secret (neither in `.env` nor in `data/auth.json`), every page shows the setup screen and the API is closed. There is no setup token: whoever opens it first sets the login, so finish setup right after deploying (if a password is already set and only the TOTP is missing, setup asks for that password). Step 1 sets the password (12+ characters, stored as a scrypt hash), step 2 shows a QR code for the authenticator app and saves only once a code from the app checks out. To start over: delete `data/auth.json` and `data/sessions.json`, restart, open the dashboard.
-- **Login**: password plus a TOTP code (a code works once). Failed logins are limited to 10 per IP per 15 min and 50 in total per hour (then nobody can log in for up to an hour; restart the container to clear it).
-- **Sessions** are server-side in `data/sessions.json` (sha256 of each token, 7 days). Sign out ends the session; delete the file to end all of them.
-- **Cookie**: `HttpOnly; Secure; SameSite=Strict`, so a link from another site opens the login page; open the dashboard from a bookmark.
-- **Network**: `PROXY_NETWORK` holds only nginx-proxy and this app, so other containers can't reach port 8000 and skip the proxy. `X-Real-IP` is only believed from `TRUSTED_PROXY`.
-- **Browser**: strict CSP (only the page's own nonce'd script, requests to itself), no framing. Writes need the `X-AIDash` header.
-- Other apps on the same origin (`example.com/...`) could act as you while you're logged in; a subdomain of its own avoids that.
+- **Setup:** while no password or TOTP secret is set, every page shows the setup screen and the API is closed. Finish setup right after you deploy. To start over, delete `data/auth.json` and `data/sessions.json` and restart.
+- **Login:** a password (stored as a scrypt hash) plus a TOTP code, and each code works only once. Failed logins are limited to 10 per IP per 15 minutes and 50 per hour in total. Restarting the container clears these limits.
+- **Sessions:** sessions are stored on the server in `data/sessions.json` (as sha256 hashes of the tokens) and last 7 days. Delete the file to sign out everywhere.
+- **Cookie:** `HttpOnly; Secure; SameSite=Strict`. Because of this, a link from another site lands on the login page. Open the dashboard from a bookmark.
+- **Requests:** every route except `/ai/health` needs a login. Every write also needs the `X-AIDash` header, which a cross-site form cannot send. Keys sent to sessions must be on a whitelist.
+- **Browser:** a strict CSP (only the page's own nonce'd script, requests only to its own origin) and no framing.
+- **Network:** `PROXY_NETWORK` holds only the proxy and this app. `X-Real-IP` is trusted only from `TRUSTED_PROXY`.
+- **Container:** a read-only filesystem, all capabilities dropped, and `no-new-privileges`.
+- **Origin:** other apps on the same origin could act as you while you are logged in, so a subdomain of its own (such as `ai.example.com`) is the safer choice.
 
-If `TOTP_SECRET` is set in `.env` instead, add it to an authenticator app with a QR code (on the host, python3 with `qrcode`):
+To use a `TOTP_SECRET` from `.env`, add it to your authenticator app with a QR code
+(this needs Python's `qrcode` package on the host):
 
-    python3 -c "import qrcode,re;s=re.search(r'^TOTP_SECRET=(.*)$',open('.env').read(),re.M)[1].strip();q=qrcode.QRCode();q.add_data(f'otpauth://totp/AI%20Ops?secret={s}&issuer=AI%20Ops');q.print_ascii(invert=True)"
+```sh
+python3 -c "import qrcode,re;s=re.search(r'^TOTP_SECRET=(.*)$',open('.env').read(),re.M)[1].strip();q=qrcode.QRCode();q.add_data(f'otpauth://totp/AI%20Ops?secret={s}&issuer=AI%20Ops');q.print_ascii(invert=True)"
+```
 
-## Deploy
+## Troubleshooting
 
-    cp .env.example .env     # fill in DOMAIN, paths, RUN_AS
-    docker compose up -d --build
-    # then open the dashboard right away and follow the setup screen (the first visitor sets the login)
+- **"tmux failed" or "protocol version mismatch":** the container's tmux doesn't match the host's. Change `BASE_IMAGE`.
+- **No sessions:** check that `RUN_AS` and `TMUX_SOCKET_DIR` belong to the user who runs tmux (`echo $TMUX` in a session).
+- **Cron tab says the crontab isn't writable:** the cron view requires `RUN_AS=0:0`.
+- **No "last run" times:** the container cannot read syslog. Check `LOG_GROUP`.
 
-What `.env` has to match on the host:
+## Development
 
-- **`RUN_AS` / `TMUX_SOCKET_DIR`**: the user who runs tmux and Claude, and their socket dir (`/tmp/tmux-<uid>`). The container runs as that user because the socket is private to it. `./data` must be writable by it (`mkdir -p data && chown <uid>:<gid> data`). The same goes for `SHOTS_DIR` and `CLAUDE_DIR/skills/dashboard-screenshots` when `RUN_AS` isn't root: Docker creates missing mount folders as root.
-- **`BASE_IMAGE`**: its tmux must match the host's `tmux -V` (protocol versions must match). If the versions don't match, the dashboard shows "tmux failed" or "protocol version mismatch".
-- **`PROJECTS_DIR`**: one folder per project. The new-session list and grouping come from it.
-- **`CLAUDE_DIR`**: optional extras. `skills/` adds personal skills to the menu. `usage/limits.json` feeds the usage-limit bars and is written by a Claude Code status line script that saves the status line's `rate_limits` payload. Without it, the bars don't show. Claude Code sometimes leaves a window out of `rate_limits`; the script should then keep the last reading of that window until its `resets_at` and mark when it was taken with a `seen` timestamp (the bar is dimmed then). A window with no reading shows as "–".
-- **batch progress**: this needs `scripts/batch.py`'s log format (see below). Without it, sessions still show up, just without batch progress.
+| Path | Contents |
+|---|---|
+| `app.py` | HTTP server (Python stdlib only). Reads tmux through the host socket and the process tree through `/proc` (`pid: host`). |
+| `auth.py` | First-run setup, password and TOTP login, server-side sessions, rate limiting. |
+| `cron.py` | Crontab parsing and writing, schedule calculations and descriptions, last runs from syslog. |
+| `shots.py` | Screenshot storage, retention and serving, and installing the skill. |
+| `skill/` | Templates for the `dashboard-screenshots` skill. |
+| `web/` | The dashboard, login page and setup page (no build step). |
+| `docs/screenshots.py` | Regenerates the screenshots in this README. |
 
-Routing is nginx-proxy path routing (`VIRTUAL_HOST=$DOMAIN`, `VIRTUAL_PATH=$BASE_PATH/`)
-on the external `PROXY_NETWORK` (a network of its own: `docker network create aidash && docker network connect aidash nginx-proxy`, and add it to the proxy's compose so it survives a recreate). The bare `/ai` → `/ai/` redirect is a one-line rule
-in nginx-proxy's vhost.d:
+### Regenerating the screenshots
 
-    docker exec nginx-proxy sh -c 'echo "location = /ai { return 301 /ai/; }" >> /etc/nginx/vhost.d/example.com' && docker exec nginx-proxy nginx -s reload
+```sh
+pip install playwright && playwright install chromium
+python3 docs/screenshots.py
+```
 
-Without nginx-proxy, publish the port in a `docker-compose.override.yml` and put
-your own TLS proxy in front. Don't expose plain HTTP: the password is a shell on the host.
-
-    services:
-      app:
-        ports: ["127.0.0.1:8000:8000"]
-
-(The external `PROXY_NETWORK` must still exist: `docker network create aidash`.)
-
-## How state is detected
-
-| Kind | State | Signal |
-|---|---|---|
-| batch | running | a `batch.py` process under the pane |
-| batch | sleeping | last log line says `sleeping N min` |
-| batch | usage limit | `#N -> limit` and the process has exited |
-| batch | finished | `Done:` / `Batch finished` |
-| claude | working | `esc to interrupt` or the spinner line |
-| claude | needs input | permission prompt (`Do you want to…`, `❯ 1.`) |
-| claude | waiting for you | everything else |
-
-Sessions are grouped by project family: the pane's directory under
-`PROJECTS_DIR`, with `_dev`/`-dev`/`_demo` and anything after `_` stripped.
-For example, `deskdonkey_ai_dev` is grouped under `deskdonkey`.
-
-## Security
-
-The tmux socket gives full control of the host's tmux, and the dashboard uses
-it: it types into sessions and starts new ones. In effect, the password is a
-shell as `RUN_AS` on the host (often root). All routes except `/ai/health` need the password.
-Every write (`POST /ai/api/…`) also needs the `X-AIDash: 1` header, which a
-cross-site form can't send. Keys are limited to a whitelist. Failed logins are limited to
-10 per IP per 15 minutes. The container is read-only and runs with all
-capabilities dropped. Change the password in `.env`, then run
-`docker compose up -d`.
+The script starts a separate tmux server on its own socket, so your sessions are not
+affected. It creates 7 sessions in 3 demo projects, running stand-ins for `claude` and
+`batch.py` that print a canned screen. It also creates a demo crontab, syslog and usage
+file, then serves everything with the real `app.py` and captures the page with Playwright.
+Only two things are faked: the login is skipped, and the session ages are shifted.
