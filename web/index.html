@@ -311,8 +311,48 @@
   .sendrow #mic.off { opacity: .45; }
   @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 #BA051799; } 50% { box-shadow: 0 0 0 7px #BA051700; } }
 
+  /* ---- views: .sv sessions, .hv screenshots, .cv cron ---- */
+  body:not(.v-sessions) .sv, body:not(.v-shots) .hv, body:not(.v-cron) .cv { display: none !important; }
+
+  /* ---- screenshots ---- */
+  .strip { display: flex; gap: 6px; }
+  .strip img, .strip .smore {
+    width: 72px; height: 48px; border-radius: 5px; object-fit: cover; object-position: top; cursor: pointer; flex: none;
+    background: var(--idle-bg); box-shadow: 0 0 0 1px var(--border);
+  }
+  .strip img:hover, .strip .smore:hover { box-shadow: 0 0 0 2px var(--brand); }
+  .strip .smore { display: grid; place-items: center; border: 0; color: var(--muted); font-size: 12px; font-weight: 600; width: 48px; }
+  .sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .shot { background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; cursor: pointer;
+          display: flex; flex-direction: column; }
+  .shot:hover { box-shadow: 0 0 0 2px var(--brand); }
+  .shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; display: block; background: var(--idle-bg); }
+  .shot .sc { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .shot .cap { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .shot .cap.none { color: var(--muted); font-style: italic; }
+  .smeta { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .who { border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 600; }
+  .who.claude { background: var(--sky); color: var(--brand); }
+  .who.you { background: var(--ok-bg); color: var(--ok); }
+  .shotinfo { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
+  .shotinfo code { background: var(--idle-bg); border-radius: 4px; padding: 0 5px; word-break: break-all; }
+  #vdlg { width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; border-radius: 0; background: #050b14; }
+  #vdlg .dhead { background: transparent; border-bottom: 1px solid #ffffff1a; }
+  #vdlg .vmeta { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  #vdlg .vmeta > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #vdlg .vmeta small { opacity: .7; font-size: 12px; }
+  .vstage { flex: 1; min-height: 0; display: grid; place-items: center; position: relative; padding: 12px; touch-action: pan-y pinch-zoom; }
+  .vstage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 10px 40px #0008; }
+  .vnav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; border: 0; border-radius: 8px;
+          background: #ffffff14; color: #fff; font-size: 22px; cursor: pointer; }
+  .vnav:hover { background: #ffffff2a; }
+  .vnav.prev { left: 10px; } .vnav.next { right: 10px; }
+  .vcap { padding: 10px 16px max(14px, env(safe-area-inset-bottom)); font-size: 14px; color: #fff; text-align: center; white-space: pre-wrap; }
+  .vcap code { opacity: .55; font-size: 11px; display: block; margin-top: 4px; word-break: break-all; }
+  #dlg.dropping .dbody { outline: 3px dashed var(--cloud); outline-offset: -8px; }
+  .sendrow #attach.busy { animation: recpulse 1.4s infinite; opacity: .7; }
+
   /* ---- cron view ---- */
-  body.v-cron .sv, body:not(.v-cron) .cv { display: none !important; }
   .card.cron { border-top-color: var(--brand); }
   .card.cron.off { border-top-color: var(--idle); }
   .card.cron.off .chead, .card.cron.off .cbody { opacity: .6; }
@@ -372,11 +412,13 @@
     .dhead #dsub { display: none; }
     .dhead { padding: 8px 10px; gap: 8px; }
     .dbody { padding: 8px 10px; }
+    .sgrid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .vnav { display: none; }
     .composer { padding: 6px 8px 8px; }
   }
 </style>
 </head>
-<body>
+<body class="v-sessions">
 <header>
   <div class="bar">
     <svg width="40" height="40" viewBox="0 0 56 56" aria-hidden="true">
@@ -398,6 +440,7 @@
   <div class="tools">
     <div class="seg" id="view">
       <button data-v="sessions" class="on">Sessions</button>
+      <button data-v="shots">Screenshots</button>
       <button data-v="cron">Cron jobs</button>
     </div>
     <div class="seg sv" id="kind">
@@ -408,13 +451,16 @@
     <input id="q" type="search" placeholder="Filter sessions or projects…">
     <button class="tbtn sv" id="showhidden" title="Show sessions you hid">Hidden</button>
     <button class="tbtn primary sv" id="newbtn">+ New session</button>
+    <button class="tbtn primary hv" id="shotup" title="Upload an image (it isn't sent to a session)">+ Upload</button>
     <button class="tbtn cv" id="rawbtn" title="Edit the whole crontab as text">Edit raw</button>
     <button class="tbtn primary cv" id="newjob">+ New job</button>
   </div>
   <div id="err"></div>
   <div id="groups" class="sv"></div>
+  <div id="shots" class="hv"></div>
   <div id="cron" class="cv"></div>
 </main>
+<input type="file" id="shotfile" accept="image/*" multiple hidden>
 
 <dialog id="dlg">
   <div class="dwrap">
@@ -422,6 +468,7 @@
       <b id="dtitle"></b><span id="dsub" style="opacity:.75;font-size:12px"></span>
       <span class="spacer"></span>
       <a class="hbtn" id="dgit" target="_blank" rel="noopener" title="Open the repo's issues"><span id="dgiticon"></span><span class="hide-sm">Issues</span></a>
+      <button class="hbtn" id="dshots" title="Screenshots of this session"></button>
       <button class="hbtn" id="dcmds">Commands ▾</button>
       <button class="hbtn hide-sm" id="dfollow">Following</button>
       <button class="hbtn" id="dclose">Close</button>
@@ -442,6 +489,10 @@
       </div>
       <form class="sendrow" id="sendf">
         <textarea id="msg" rows="1" placeholder="Type or dictate… Enter sends, Shift+Enter for a new line"></textarea>
+        <button type="button" class="ghost" id="attach" title="Attach an image (you can also paste or drop one)" aria-label="Attach an image">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+        </button>
+        <input type="file" id="attachfile" accept="image/*" multiple hidden>
         <button type="button" class="ghost" id="lang" title="Dictation language (click to switch)">EN</button>
         <button type="button" class="ghost" id="mic" title="Dictate (click again to stop)" aria-label="Dictate">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
@@ -522,6 +573,24 @@
   </div>
 </dialog>
 
+<dialog id="vdlg">
+  <div class="dwrap">
+    <div class="dhead">
+      <div class="vmeta"><b id="vtitle"></b><small id="vsub"></small></div>
+      <a class="hbtn hide-sm" id="vopen" target="_blank" rel="noopener" title="Open the full image in a new tab">Open</a>
+      <button class="hbtn" id="vcopy" title="Copy the file's path on the server">Copy path</button>
+      <button class="hbtn" id="vdel">Delete</button>
+      <button class="hbtn" id="vclose">Close</button>
+    </div>
+    <div class="vstage" id="vstage">
+      <img id="vimg" alt="">
+      <button class="vnav prev" id="vprev" aria-label="Previous">‹</button>
+      <button class="vnav next" id="vnext" aria-label="Next">›</button>
+    </div>
+    <div class="vcap" id="vcap"></div>
+  </div>
+</dialog>
+
 <div class="menu" id="menu" role="menu"></div>
 <div class="toast" id="toast"></div>
 
@@ -568,6 +637,8 @@ async function post(path, body) {
 let toastTimer;
 function toast(msg, bad) {
   const t = $("#toast");
+  // an open modal <dialog> sits in the top layer, above any z-index: show the toast inside the topmost one
+  ([...document.querySelectorAll("dialog[open]")].pop() || document.body).appendChild(t);
   t.textContent = msg; t.classList.toggle("bad", !!bad); t.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
 }
@@ -840,6 +911,7 @@ function card(s, now) {
     </div>
     <div class="cbody">
       ${body}
+      ${shotStrip(s)}
       ${preview ? `<div class="term mono" data-open="${esc(s.name)}" title="Open terminal">${preview}</div>` : ""}
     </div>
     <div class="cfoot">
@@ -911,6 +983,8 @@ function render() {
 }
 
 $("#groups").addEventListener("click", (e) => {
+  const sh = e.target.closest("[data-shots]");
+  if (sh) { const s = byName(sh.dataset.shots); if (s) openViewer(sessionShots(s), +sh.dataset.i); return; }
   const g = e.target.closest("[data-group]"), c = e.target.closest("[data-collapse]"), o = e.target.closest("[data-open]");
   if (o) { if (!getSelection().toString()) openPane(o.dataset.open); }  // a drag to copy text doesn't open it
   else if (g) toggleCollapsed("g", g.dataset.group); else if (c) toggleCollapsed("c", c.dataset.collapse);
@@ -922,6 +996,7 @@ async function refresh() {
     if (r.status === 401) { location.reload(); return; }
     data = await r.json();
     lastOk = Date.now();
+    if (data.shots_rev && data.shots_rev !== shotsRev) { const first = shotsRev === null; shotsRev = data.shots_rev; loadShots(first); }
     render();
   } catch (e) { /* keep last data, the indicator goes stale */ }
   tick();
@@ -936,7 +1011,7 @@ document.querySelectorAll("#kind button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("#kind button").forEach((x) => x.classList.toggle("on", x === b));
   kindFilter = b.dataset.k; render();
 });
-$("#q").oninput = () => (view === "cron" ? renderCron() : render());
+$("#q").oninput = () => (view === "cron" ? renderCron() : view === "shots" ? renderShots() : render());
 
 /* ---- full output modal ---- */
 let paneName = null, paneTimer = null, follow = true;
@@ -958,6 +1033,7 @@ function openPane(name) {
   $("#dcmds").style.display = s ? "" : "none";
   $("#dgit").style.display = s?.issues_url ? "" : "none";
   if (s?.issues_url) $("#dgit").href = s.issues_url;
+  updatePaneShots();
   $("#dlg").showModal();
   if (!TOUCH) $("#msg").focus();
   loadPane();
@@ -1092,17 +1168,214 @@ $("#dbody").addEventListener("scroll", (e) => {
   if (!atBottom && follow) { follow = false; $("#dfollow").textContent = "Paused"; }
 });
 
+/* ---- screenshots: images sessions share (the dashboard-screenshots skill that the server installs into
+   ~/.claude/skills) and images you upload for them. Files and retention: shots.py. ---- */
+let shotList = [], shotsRev = null, shotsInfo = {}, galleryShown = [];
+const IMG_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>';
+const shotUrl = (x) => `${BASE}/shots/${x.src}/${x.id}.${x.ext}`;
+const shotKey = (x) => `${x.src}/${x.id}`;
+// a shot belongs to the session instance it was taken in, so a new session that reuses the name starts empty
+const sessionShots = (s) => shotList.filter((x) => x.session === s.name && (!x.session_created || x.session_created === s.created));
+
+async function loadShots(first) {
+  let j;
+  try { j = await getJSON("/api/shots"); } catch { return; }
+  const before = new Set(shotList.map(shotKey));
+  shotList = j.shots; shotsInfo = j;
+  const fresh = first ? [] : shotList.filter((x) => x.from === "claude" && !before.has(shotKey(x)));
+  if (fresh.length) toast(fresh.length === 1 ? `${fresh[0].session || "A session"} shared a screenshot` : `${fresh.length} new screenshots`);
+  render(); renderShots(); updatePaneShots();
+}
+
+function shotStrip(s) {
+  const list = sessionShots(s);
+  if (!list.length) return "";
+  const n = esc(s.name);
+  return `<div class="strip">${list.slice(0, 4).map((x, i) =>
+      `<img src="${esc(shotUrl(x))}" loading="lazy" alt="${esc(x.caption || "Screenshot")}" title="${esc(x.caption || "Screenshot")}" data-shots="${n}" data-i="${i}">`).join("")}${
+    list.length > 4 ? `<button class="smore" data-shots="${n}" data-i="4" title="All screenshots of this session">+${list.length - 4}</button>` : ""}</div>`;
+}
+
+function shotTile(x, i, now) {
+  return `<div class="shot" data-gi="${i}">
+    <img src="${esc(shotUrl(x))}" loading="lazy" alt="${esc(x.caption || "Screenshot")}">
+    <div class="sc">
+      <div class="cap${x.caption ? "" : " none"}">${esc(x.caption || "No caption")}</div>
+      <div class="smeta"><span class="who ${x.from}">${x.from === "claude" ? "Claude" : "You"}</span>${
+        x.session ? `<span>${x.from === "you" ? "→ " : ""}${esc(x.session)}</span>` : ""}<span>${ago(now - x.created)} ago</span></div>
+    </div>
+  </div>`;
+}
+function renderShots() {
+  if (view !== "shots") return;
+  const now = data?.now || Math.floor(Date.now() / 1000), q = $("#q").value.trim().toLowerCase(), i = shotsInfo;
+  const list = shotList.filter((x) => !q || `${x.caption} ${x.session} ${x.project}`.toLowerCase().includes(q));
+  const groups = {};
+  list.forEach((x) => (groups[x.family || "other"] ||= []).push(x));
+  const names = Object.keys(groups).sort((a, b) => (a === "other") - (b === "other") || groups[b][0].created - groups[a][0].created);
+  galleryShown = names.flatMap((g) => groups[g]);
+  let n = 0;
+  $("#shots").innerHTML =
+    (i.problem ? `<div class="error-banner">Sessions can't share screenshots yet: ${esc(i.problem)}</div>` : "") +
+    `<div class="shotinfo">${shotList.length} screenshots, kept ${i.keep_days ?? "–"} days in <code>${esc(i.dir || "")}</code>${
+      i.skill ? ` · Claude sessions share them with the <b>dashboard-screenshots</b> skill (<code>${esc(i.skill)} &lt;image&gt; "caption"</code>)` : ""}</div>` +
+    (names.length ? names.map((g) => `
+      <section class="group${collapsed.g.includes("shots:" + g) ? " collapsed" : ""}">
+        <h2 data-group="shots:${esc(g)}" title="Collapse / expand"><span class="chev">▼</span>${esc(g)} <span class="count">${groups[g].length}</span></h2>
+        <div class="grid sgrid">${groups[g].map((x) => shotTile(x, n++, now)).join("")}</div>
+      </section>`).join("")
+      : `<div class="empty">${shotList.length ? "No screenshots match." : "No screenshots yet. Claude sessions post theirs here, and images you attach in a terminal show up too."}</div>`);
+}
+$("#shots").addEventListener("click", (e) => {
+  const g = e.target.closest("[data-group]"), t = e.target.closest("[data-gi]");
+  if (t) openViewer(galleryShown, +t.dataset.gi);
+  else if (g) { const a = collapsed.g, k = g.dataset.group, i = a.indexOf(k); i < 0 ? a.push(k) : a.splice(i, 1);
+    try { localStorage.setItem("aidash-collapsed", JSON.stringify(collapsed)); } catch {} renderShots(); }
+});
+
+/* viewer: one image at a time over whatever list it was opened from (a session's shots, or the gallery) */
+let vList = [], vIdx = 0;
+function openViewer(list, i) {
+  if (!list.length) return;
+  vList = list; vIdx = Math.max(0, Math.min(i, list.length - 1));
+  showShot();
+  if (!$("#vdlg").open) $("#vdlg").showModal();
+}
+function showShot() {
+  const x = vList[vIdx];
+  if (!x) { $("#vdlg").close(); return; }
+  $("#vimg").src = $("#vopen").href = shotUrl(x);
+  $("#vimg").alt = x.caption || "Screenshot";
+  $("#vtitle").textContent = x.from === "claude" ? `${x.session || "A session"} shared` : `You uploaded${x.session ? " for " + x.session : ""}`;
+  $("#vsub").textContent = `${x.project ? x.project + " · " : ""}${fmtWhen(x.created)}${vList.length > 1 ? ` · ${vIdx + 1} of ${vList.length}` : ""}`;
+  $("#vcap").innerHTML = `${esc(x.caption)}<code>${esc(x.file)}</code>`;
+  $("#vprev").style.visibility = vIdx > 0 ? "" : "hidden";
+  $("#vnext").style.visibility = vIdx < vList.length - 1 ? "" : "hidden";
+}
+const vStep = (d) => { if (vList[vIdx + d]) { vIdx += d; showShot(); } };
+$("#vprev").onclick = () => vStep(-1);
+$("#vnext").onclick = () => vStep(1);
+$("#vclose").onclick = () => $("#vdlg").close();
+$("#vdlg").addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") vStep(-1); else if (e.key === "ArrowRight") vStep(1); });
+let swipeX = null;
+$("#vstage").addEventListener("pointerdown", (e) => { swipeX = e.clientX; });
+$("#vstage").addEventListener("pointerup", (e) => {
+  const dx = swipeX == null ? 0 : e.clientX - swipeX;
+  swipeX = null;
+  if (Math.abs(dx) > 60) vStep(dx < 0 ? 1 : -1);
+  else if (e.target === e.currentTarget) $("#vdlg").close();  // a tap next to the image
+});
+$("#vcopy").onclick = async () => {
+  const f = vList[vIdx]?.file;
+  try { await navigator.clipboard.writeText(f); toast("Path copied"); } catch { toast("Couldn't copy: " + f, true); }
+};
+$("#vdel").onclick = async () => {
+  const x = vList[vIdx];
+  if (!x || !await confirmBox("Delete this screenshot?", `<p>It is removed from the server:</p><code>${esc(x.file)}</code>`, { ok: "Delete", danger: true })) return;
+  try {
+    await post("/api/shots/delete", { src: x.src, id: x.id });
+    vList = vList.filter((y) => y !== x);
+    vIdx = Math.min(vIdx, vList.length - 1);
+    showShot();
+    toast("Deleted"); refresh();
+  } catch (e) { toast(e.message, true); }
+};
+
+function updatePaneShots() {
+  const s = paneName && byName(paneName), list = s ? sessionShots(s) : [], b = $("#dshots");
+  b.style.display = list.length ? "" : "none";
+  b.innerHTML = `${IMG_ICON}<span>${list.length}</span>`;
+}
+$("#dshots").onclick = () => { const s = byName(paneName); if (s) openViewer(sessionShots(s), 0); };
+
+/* uploads. Most reverse proxies cap a request at 1 MB (nginx's default), so big images are scaled
+   down and re-encoded in the browser first. Claude scales images down anyway. HEIC etc. become WebP/JPEG. */
+const SEND_MAX = 900 * 1024;
+const SENDABLE = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+async function prepareImage(file) {
+  if (file.type === "image/gif" || (SENDABLE.includes(file.type) && file.size <= SEND_MAX)) return file;
+  let bmp;
+  try { bmp = await createImageBitmap(file); }
+  catch { if (SENDABLE.includes(file.type)) return file; throw new Error("This browser can't read that image. Use PNG or JPEG."); }
+  let out = file;
+  for (const [edge, q] of [[2400, .9], [2000, .85], [1600, .8], [1280, .75]]) {
+    const k = Math.min(1, edge / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    let b = await new Promise((r) => c.toBlob(r, "image/webp", q));
+    if (!b || b.type !== "image/webp") b = await new Promise((r) => c.toBlob(r, "image/jpeg", q));  // Safari can't encode WebP
+    if (b) out = b;
+    if (b && b.size <= SEND_MAX) break;
+  }
+  return out;
+}
+async function uploadImage(file, session) {
+  const body = await prepareImage(file);
+  const r = await fetch(`${BASE}/api/shots/upload${session ? "?s=" + encodeURIComponent(session) : ""}`, {
+    method: "POST", headers: { "X-AIDash": "1", "Content-Type": body.type || "application/octet-stream" }, body,
+  });
+  if (r.status === 401) { location.reload(); throw new Error("login"); }
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 413 && !j.error) throw new Error("The image is too big for the proxy in front of the dashboard (client_max_body_size).");
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j.path;
+}
+const images = (files) => [...(files || [])].filter((f) => f.type.startsWith("image/"));
+/* terminal view: upload, then put the image's path into the message, so Claude reads it when you send */
+async function attachImages(files) {
+  files = images(files);
+  if (!files.length || !paneName) return;
+  $("#attach").classList.add("busy");
+  try {
+    for (const f of files) {
+      const path = await uploadImage(f, paneName);
+      msg.value = (msg.value.trim() ? msg.value.replace(/\s*$/, " ") : "") + path + " ";
+    }
+    grow();
+    toast(files.length > 1 ? `${files.length} images attached: their paths are in your message` : "Image attached: its path is in your message");
+    if (!TOUCH) msg.focus();
+  } catch (e) { toast(e.message, true); }
+  finally { $("#attach").classList.remove("busy"); refresh(); }
+}
+$("#attach").onclick = () => $("#attachfile").click();
+$("#attachfile").onchange = (e) => { attachImages(e.target.files); e.target.value = ""; };
+msg.addEventListener("paste", (e) => {
+  const files = images(e.clipboardData?.files);
+  if (files.length) { e.preventDefault(); attachImages(files); }
+});
+const dragsFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+$("#dlg").addEventListener("dragover", (e) => { if (dragsFiles(e)) { e.preventDefault(); $("#dlg").classList.add("dropping"); } });
+$("#dlg").addEventListener("dragleave", (e) => { if (!e.relatedTarget || !$("#dlg").contains(e.relatedTarget)) $("#dlg").classList.remove("dropping"); });
+$("#dlg").addEventListener("drop", (e) => {
+  if (!dragsFiles(e)) return;
+  e.preventDefault(); $("#dlg").classList.remove("dropping");
+  attachImages(e.dataTransfer.files);
+});
+/* Screenshots tab: upload without a session (copy its path from the viewer) */
+$("#shotup").onclick = () => $("#shotfile").click();
+$("#shotfile").onchange = async (e) => {
+  const files = images(e.target.files);
+  e.target.value = "";
+  try {
+    for (const f of files) await uploadImage(f, "");
+    if (files.length) toast(files.length > 1 ? `Uploaded ${files.length} images` : "Uploaded");
+  } catch (err) { toast(err.message, true); }
+  refresh();
+};
+
 /* ---- cron jobs: the host user's crontab, edited through /api/cron/* ---- */
 let view = "sessions", cron = null, cronAt = 0;
 const CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 const LOG_RE = /\s+>>\s*(\S+)\s+2>&1\s*$/;
 function setView(v) {
   view = v;
-  document.body.classList.toggle("v-cron", v === "cron");
+  document.body.classList.remove("v-sessions", "v-shots", "v-cron");
+  document.body.classList.add("v-" + v);
   document.querySelectorAll("#view button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
-  $("#q").placeholder = v === "cron" ? "Filter jobs…" : "Filter sessions or projects…";
-  history.replaceState(null, "", v === "cron" ? "#cron" : location.pathname);
+  $("#q").placeholder = { cron: "Filter jobs…", shots: "Filter screenshots…" }[v] || "Filter sessions or projects…";
+  history.replaceState(null, "", v === "sessions" ? location.pathname : "#" + v);
   if (v === "cron") loadCron();
+  if (v === "shots") renderShots();
 }
 document.querySelectorAll("#view button").forEach((b) => b.onclick = () => setView(b.dataset.v));
 
@@ -1309,7 +1582,9 @@ $("#rsave").onclick = async () => {
   } catch (e) { $("#rerr").textContent = e.message; }
 };
 
-if (location.hash === "#cron") setView("cron");
+const viewOfHash = () => ({ "#cron": "cron", "#shots": "shots" }[location.hash] || "sessions");
+if (viewOfHash() !== "sessions") setView(viewOfHash());
+addEventListener("hashchange", () => setView(viewOfHash()));
 setInterval(() => { if (view === "cron" && !document.hidden && !document.querySelector("dialog[open]")) {
   if (Date.now() - cronAt > 30000) loadCron(); else renderCron(); } }, 5000);
 refresh();

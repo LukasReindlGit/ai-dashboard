@@ -20,6 +20,11 @@
 #   - CRON_SPOOL: the host cron spool (/var/spool/cron/crontabs). The "Cron jobs" view
 #     edits CRON_USER's crontab in it (in place, a backup of each version goes to
 #     ./data/cron-backups). Root only: the spool dir is closed to other users.
+#   - SHOTS_DIR (default CLAUDE_DIR/screenshots): screenshots that sessions share and that you
+#     upload, mounted at the same path so the paths the page shows work for Claude on the host.
+#     On start the app writes the dashboard-screenshots skill (skill/ in this repo, with this
+#     host's paths and URL filled in) into CLAUDE_DIR/skills, so every Claude session on the
+#     host knows how to share an image with you. Both must be writable by RUN_AS.
 #   - /var/log is mounted read-only for the jobs' log files and, with LOG_GROUP (the
 #     group that may read syslog, adm = 4 on Debian/Ubuntu), each job's last run.
 #   - ./data holds state.json (hidden sessions), auth.json (login), sessions.json. It must be
@@ -53,6 +58,10 @@ services:
       CRON_DIR: /cron
       CRON_USER: ${CRON_USER:-root}
       HOST_LOG_DIR: /hostlog
+      SHOTS_DIR: ${SHOTS_DIR:-${CLAUDE_DIR}/screenshots}
+      SHOTS_KEEP_DAYS: ${SHOTS_KEEP_DAYS:-14}
+      SHOTS_MAX_MB: ${SHOTS_MAX_MB:-500}
+      SKILL_DIR: ${CLAUDE_DIR}/skills/dashboard-screenshots
       TRUSTED_PROXY: ${TRUSTED_PROXY:-nginx-proxy}
       CONTAINER_NAME: ${CONTAINER_NAME:-ai-dashboard}
       VIRTUAL_HOST: ${DOMAIN:?set DOMAIN in .env}
@@ -64,6 +73,8 @@ services:
       - ${PROJECTS_DIR}:${PROJECTS_DIR}:ro
       - ${CLAUDE_DIR:?set CLAUDE_DIR in .env}/skills:/claude/skills:ro
       - ${CLAUDE_DIR}/usage:/claude/usage:ro
+      - ${SHOTS_DIR:-${CLAUDE_DIR}/screenshots}:${SHOTS_DIR:-${CLAUDE_DIR}/screenshots}
+      - ${CLAUDE_DIR}/skills/dashboard-screenshots:${CLAUDE_DIR}/skills/dashboard-screenshots
       - ${CRON_SPOOL:-/var/spool/cron/crontabs}:/cron
       - /var/log:/hostlog:ro
       - ./data:/data

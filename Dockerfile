@@ -11,8 +11,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY app.py auth.py cron.py ./
+COPY app.py auth.py cron.py shots.py ./
 COPY web/ ./web/
+COPY skill/ ./skill/
 
 ENV PORT=8000 BASE_PATH=/ai LANG=C.UTF-8 PYTHONUNBUFFERED=1
 EXPOSE 8000

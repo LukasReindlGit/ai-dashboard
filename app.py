@@ -6,6 +6,7 @@ container) and reads the host process table through /proc (pid: host). Besides
 reading (list-panes, capture-pane) it can type into a session, hide or end one,
 and start a new Claude session in a project — all behind the login, and every
 write needs the X-AIDash header so another site can't trigger it (CSRF).
+Screenshots that sessions share or the user uploads: see shots.py.
 """
 
 import html
@@ -23,6 +24,7 @@ from pathlib import Path
 
 import auth
 import cron
+import shots
 
 PORT = int(os.environ.get("PORT", "8000"))
 BASE = os.environ.get("BASE_PATH", "/ai").rstrip("/")
@@ -564,6 +566,27 @@ def new_session(project, name, resume, prompt):
          f'PATH="$HOME/.local/bin:$PATH" {cmd}; exec bash')
 
 
+def shot_list():
+    out = []
+    for s in shots.listing():
+        project = project_of(s["cwd"]) if s["cwd"] else ""
+        out.append({**s, "project": project, "family": family(project) if project else ""})
+    return out
+
+
+def upload_shot(handler):
+    """Raw image body; ?s=<session> ties it to a session (its folder becomes the project)."""
+    q = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+    name, caption = (q.get("s") or [""])[0], (q.get("caption") or [""])[0]
+    created, cwd = 0, ""
+    if name:
+        if name not in session_names():
+            raise ValueError("no such session")
+        created, _, cwd = tmux("display-message", "-p", "-t", f"={name}:",
+                               "#{session_created}\t#{pane_current_path}").strip().partition("\t")
+    return shots.save_upload(handler.body(shots.MAX_UPLOAD), name, int(created or 0), cwd, caption)
+
+
 def run_cron_job(body):
     """Start a crontab job now, in a tmux session, with cron's environment.
     Output that the job redirects to a log is followed live in the pane."""
@@ -631,12 +654,12 @@ class Handler(BaseHTTPRequestHandler):
             n = 0
         return self.rfile.read(max(0, min(n, limit))) if n > 0 else b""
 
-    def send(self, code, body, ctype="text/html; charset=utf-8", headers=(), nonce=None):
+    def send(self, code, body, ctype="text/html; charset=utf-8", headers=(), nonce=None, cache="no-store"):
         data = body.encode() if isinstance(body, str) else body
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
@@ -729,9 +752,19 @@ class Handler(BaseHTTPRequestHandler):
                 data = {"ok": True, "now": int(time.time()), "sessions": collect(), "limits": read_limits()}
             except Exception as e:  # tmux server gone, socket missing, ...
                 data = {"ok": False, "now": int(time.time()), "error": str(e), "sessions": [], "limits": read_limits()}
+            data["shots_rev"] = shots.rev()
             return self.send(200, json.dumps(data), "application/json")
         if r.startswith("/api/cron"):
             return self.cron_get(r)
+        if r == "/api/shots":
+            return self.send(200, json.dumps({"shots": shot_list(), **shots.info()}), "application/json")
+        if r.startswith("/shots/"):  # /shots/<shared|uploads>/<id>.<ext>
+            _, src, name = (r[1:].split("/") + ["", ""])[:3]
+            hit = shots.file_for(src, name)
+            if not hit:
+                return self.send(404, "not found", "text/plain")
+            # ids are never reused, so the browser may keep the image (but no shared cache may)
+            return self.send(200, hit[0].read_bytes(), hit[1], cache="private, max-age=604800, immutable")
         if r == "/api/projects":
             return self.send(200, json.dumps({"projects": projects()}), "application/json")
         if r == "/api/pane":
@@ -842,7 +875,15 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("X-AIDash") != "1":
             return reply(403, {"error": "missing X-AIDash header"})
         try:
+            if r == "/api/shots/upload":
+                if int(self.headers.get("Content-Length") or 0) > shots.MAX_UPLOAD:
+                    self.close_connection = True
+                    return reply(413, {"error": f"image too large (max {shots.MAX_UPLOAD // 1024 // 1024} MB)"})
+                return reply(200, {"ok": True, "path": upload_shot(self)})
             body = json.loads(self.body(65536) or b"{}")
+            if r == "/api/shots/delete":
+                shots.delete(str(body.get("src") or ""), str(body.get("id") or ""))
+                return reply(200, {"ok": True})
             if r == "/api/new":
                 name = str(body.get("name") or "").strip()
                 new_session(str(body.get("project") or ""), name,
@@ -887,5 +928,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     auth.startup()
+    print(shots.install_skill(os.environ.get("DASHBOARD_URL") or f"https://{os.environ.get('VIRTUAL_HOST', 'localhost')}{BASE}/"),
+          flush=True)
     print(f"aidash on :{PORT}{BASE}/", flush=True)
     ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
